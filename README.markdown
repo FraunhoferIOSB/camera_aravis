@@ -1,6 +1,10 @@
 camera_aravis - forked from a deleted github repo (https://github.com/CaeruleusAqua/camera_aravis), which was itself forked from ssafarik: https://github.com/ssafarik/camera_aravis.
 
-This ROS node works with aravis version 0.3.7: ftp://ftp.acc.umu.se/pub/GNOME/sources/aravis/0.3
+This is a ROS node that works with aravis.
+* aravis version 0.3.7: ftp://ftp.acc.umu.se/pub/GNOME/sources/aravis/0.3
+  * use commit: 497e415c5b0b9c20ac4179f8acc8ae9547799523
+* aravis version 0.6 (unverified):
+  * use commit: da5c21caf3d233c1c1c9d24ead87aead509aa2b1
 
 This is a [ROS](http://ros.org) package for the [Aravis GigEVision
 library](http://live.gnome.org/Aravis). It is open source, under the
