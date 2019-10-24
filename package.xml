@@ -1,36 +1,35 @@
-<package>
+<package format="2">
   <name>camera_aravis</name>
-  <version>2.0.0</version>
-  <description>camera_aravis: An ethernet camera driver for ROS.</description>
+  <version>3.0.0</version>
+  <description>camera_aravis: A GenICam/USB3Vision based camera driver for ROS (ethernet and usb).</description>
 
-  <maintainer email="stevesafarik@gmail.com">Steve Safarik</maintainer>
+  <maintainer email="dominik.klein@fkie.fraunhofer.de">Dominik A. Klein, Fraunhofer FKIE</maintainer>
 
-  <author email="stevesafarik@gmail.com">Steve Safarik</author>
-  <author email="andrew.straw@imp.ac.at">Andrew Straw</author>
+  <author email="dominik.klein@fkie.fraunhofer.de">Dominik A. Klein, Fraunhofer FKIE</author>
+  <author email="stevesafarik@gmail.com">Steve Safarik, Straw Lab</author>
+  <author email="andrew.straw@imp.ac.at">Andrew Straw, Straw Lab</author>
+  <author email="fvanbreugel@unr.edu">Floris van Breugel, van Breugel Lab</author>
 
-  <license>LGPLv2</license>
+  <license>LGPL v2</license>
 
-  <url type="website">http://github.com/ssafarik/camera_aravis</url>
+  <url type="website">https://github.com/fkie-forks/camera_aravis</url>
+  <url type="website">https://github.com/AravisProject/aravis</url>
   
-  <author>strawlab</author>
-  <author>Steve Safarik</author>
-
   <buildtool_depend>catkin</buildtool_depend>
   
-  <build_depend>roscpp</build_depend>
-  <build_depend>sensor_msgs</build_depend>
-  <build_depend>image_transport</build_depend>
-  <build_depend>camera_info_manager</build_depend>
-  <build_depend>dynamic_reconfigure</build_depend>
-  <build_depend>driver_base</build_depend>
-  <build_depend>tf</build_depend>
+  <depend>roscpp</depend>
+  <depend>nodelet</depend>
+  <depend>pluginlib</depend>
+  <depend>sensor_msgs</depend>
+  <depend>image_transport</depend>
+  <depend>camera_info_manager</depend>
+  <depend>dynamic_reconfigure</depend>
+  <depend>driver_base</depend>
+  <depend>tf</depend>
+  <depend>aravis</depend>
   
-  <run_depend>roscpp</run_depend>
-  <run_depend>sensor_msgs</run_depend>
-  <run_depend>image_transport</run_depend>
-  <run_depend>camera_info_manager</run_depend>
-  <run_depend>dynamic_reconfigure</run_depend>
-  <run_depend>driver_base</run_depend>
-  <run_depend>tf</run_depend>
-
+  <export>
+    <nodelet plugin="${prefix}/nodelet_plugins.xml" />
+  </export>
+  
 </package>

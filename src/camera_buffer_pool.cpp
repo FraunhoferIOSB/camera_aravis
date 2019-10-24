@@ -1,0 +1,115 @@
+/****************************************************************************
+ *
+ * camera_aravis
+ *
+ * Copyright © 2019 Fraunhofer FKIE, Straw Lab, van Breugel Lab, and contributors
+ * Authors: Dominik A. Klein,
+ * 			Floris van Breugel,
+ * 			Andrew Straw,
+ * 			Steve Safarik
+ *
+ * Licensed under the LGPL, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.gnu.org/licenses/lgpl-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ****************************************************************************/
+
+#include "../include/camera_aravis/camera_buffer_pool.h"
+
+namespace camera_aravis
+{
+
+CameraBufferPool::CameraBufferPool(ArvStream* stream, size_t payload_size_bytes, size_t n_preallocated_buffers):
+			stream_(stream),
+			payload_size_bytes_(payload_size_bytes),
+			n_buffers_(0),
+			self_(this, [](CameraBufferPool* p) {})
+{
+	allocateBuffers(n_preallocated_buffers);
+}
+
+CameraBufferPool::~CameraBufferPool() {
+}
+
+sensor_msgs::ImagePtr CameraBufferPool::operator[](ArvBuffer* buffer) {
+	std::lock_guard<std::mutex> lock(mutex_);
+
+	sensor_msgs::ImagePtr img_ptr;
+	size_t buffer_size;
+	const uint8_t* buffer_data = (const uint8_t*)arv_buffer_get_data(buffer, &buffer_size);
+
+	std::map<const uint8_t*, sensor_msgs::ImagePtr>::iterator iter = available_imgs_.find(buffer_data);
+	if (iter != available_imgs_.end()) {
+		img_ptr = iter->second;
+		used_buffers_.emplace(img_ptr.get(), buffer);
+		available_imgs_.erase(iter);
+	}
+	else {
+		ROS_WARN("Could not find available image in pool corresponding to buffer.");
+		img_ptr.reset(new sensor_msgs::Image);
+		img_ptr->data.resize(buffer_size);
+		memcpy(img_ptr->data.data(), buffer_data, buffer_size);
+	}
+	return img_ptr;
+}
+
+void CameraBufferPool::allocateBuffers(size_t n) {
+	std::lock_guard<std::mutex> lock(mutex_);
+
+	if (ARV_IS_STREAM(stream_)) {
+		for (size_t i=0; i<n; ++i) {
+			sensor_msgs::Image* p_img = new sensor_msgs::Image;
+			p_img->data.resize(payload_size_bytes_);
+			ArvBuffer* buffer = arv_buffer_new(payload_size_bytes_, p_img->data.data());
+			sensor_msgs::ImagePtr img_ptr(p_img, boost::bind(&CameraBufferPool::reclaim, this->weak_from_this(), boost::placeholders::_1));
+			available_imgs_.emplace(p_img->data.data(), img_ptr);
+			arv_stream_push_buffer(stream_, buffer);
+			++n_buffers_;
+		}
+		ROS_INFO_STREAM("Allocated " << n << " image buffers of size " << payload_size_bytes_);
+	}
+	else {
+		ROS_ERROR("Error: Stream not valid. Failed to allocate buffers.");
+	}
+}
+
+void CameraBufferPool::reclaim(const WPtr& self, sensor_msgs::Image* p_img) {
+	Ptr s = self.lock();
+	if (s) {
+		s->push(p_img);
+	}
+	else {
+		delete p_img;
+	}
+}
+
+void CameraBufferPool::push(sensor_msgs::Image* p_img) {
+	std::lock_guard<std::mutex> lock(mutex_);
+
+	std::map<sensor_msgs::Image*, ArvBuffer*>::iterator iter = used_buffers_.find(p_img);
+
+	if (iter != used_buffers_.end()) {
+		if (ARV_IS_STREAM(stream_)) {
+			sensor_msgs::ImagePtr img_ptr(p_img, boost::bind(&CameraBufferPool::reclaim, this->weak_from_this(), boost::placeholders::_1));
+			available_imgs_.emplace(p_img->data.data(),	img_ptr);
+			arv_stream_push_buffer(stream_, iter->second);
+		}
+		else {
+			delete p_img;
+		}
+		used_buffers_.erase(iter);
+	}
+	else {
+		delete p_img;
+	}
+}
+
+} /* namespace camera_aravis */

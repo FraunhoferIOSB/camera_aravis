@@ -1,0 +1,7 @@
+<library path="lib/libcamera_aravis">
+  <class name="camera_aravis/CameraAravisNodelet" type="camera_aravis::CameraAravisNodelet" base_class_type="nodelet::Nodelet">
+  <description>
+    The Aravis camera nodelet.
+  </description>
+  </class>
+</library>
