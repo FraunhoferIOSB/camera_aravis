@@ -4,14 +4,34 @@ project(camera_aravis)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules)
 
-find_package(catkin REQUIRED COMPONENTS roscpp nodelet sensor_msgs image_transport camera_info_manager dynamic_reconfigure driver_base tf dynamic_reconfigure)
+find_package(catkin REQUIRED COMPONENTS
+  roscpp
+  nodelet
+  sensor_msgs
+  message_generation
+  image_transport
+  camera_info_manager
+  dynamic_reconfigure
+  tf
+)
 find_package(Aravis REQUIRED)
 find_package(GLIB2 REQUIRED)
 
 generate_dynamic_reconfigure_options(cfg/CameraAravisConfig.cfg)
+
+add_message_files(
+   FILES
+   CameraAutoInfo.msg
+)
+
+generate_messages(
+   DEPENDENCIES
+   std_msgs
+)
+
 catkin_package(
     DEPENDS Aravis GLIB2
-    CATKIN_DEPENDS roscpp nodelet sensor_msgs image_transport camera_info_manager dynamic_reconfigure driver_base tf
+    CATKIN_DEPENDS roscpp nodelet sensor_msgs message_runtime image_transport camera_info_manager dynamic_reconfigure tf
     INCLUDE_DIRS
     LIBRARIES
 )
@@ -27,12 +47,15 @@ set(LIBRARIES
 )
 
 add_library(${PROJECT_NAME}
-			src/camera_aravis_nodelet.cpp
-			src/camera_buffer_pool.cpp)
+  src/camera_aravis_nodelet.cpp
+  src/camera_buffer_pool.cpp
+)
 target_link_libraries(${PROJECT_NAME} ${LIBRARIES})
 add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}_gencfg)
 
-add_executable(cam_aravis src/camera_aravis_node.cpp)
+add_executable(cam_aravis
+  src/camera_aravis_node.cpp
+)
 target_link_libraries(cam_aravis ${PROJECT_NAME} ${LIBRARIES})
 add_dependencies(cam_aravis ${PROJECT_NAME}_gencfg)
 

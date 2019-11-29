@@ -41,6 +41,7 @@ extern "C"
 #include <atomic>
 #include <thread>
 #include <chrono>
+#include <unordered_map>
 
 #include <glib.h>
 
@@ -56,9 +57,9 @@ extern "C"
 #include <camera_info_manager/camera_info_manager.h>
 
 #include <dynamic_reconfigure/server.h>
-#include <driver_base/SensorLevels.h>
 #include <tf/transform_listener.h>
 #include <camera_aravis/CameraAravisConfig.h>
+#include <camera_aravis/CameraAutoInfo.h>
 
 #include "camera_buffer_pool.h"
 
@@ -68,14 +69,6 @@ namespace camera_aravis
 {
 
 typedef CameraAravisConfig Config;
-
-struct NODEEX
-{
-	const char *sz_name;
-	const char *sz_tag;
-	ArvDomNode *p_node;
-	ArvDomNode *p_node_sibling;
-};
 
 #define ARV_PIXEL_FORMAT_BYTE_PER_PIXEL(pixel_format) ((((pixel_format) >> 16) & 0xff) >> 3)
 
@@ -101,27 +94,31 @@ private:
 	virtual void onInit() override;
 
 protected:
+	// apply auto functions from a ros message
+	void cameraAutoInfoCallback(const CameraAutoInfoConstPtr& msg_ptr);
+
+	void syncAutoParameters();
+	void setAutoMaster(bool value);
+	void setAutoSlave(bool value);
+
 	// Extra stream options for GigEVision streams.
 	void tuneGvStream(ArvGvStream* p_stream);
 
 	void rosReconfigureCallback(Config &config, uint32_t level);
 
+	// Start and stop camera on demand
 	void rosConnectCallback();
 
+	// Callback to wrap and send recorded image as ROS message
 	static void newBufferReadyCallback(ArvStream *p_stream, gpointer can_instance);
 
+	// Clean-up if aravis device is lost
 	static void controlLostCallback (ArvDevice *p_gv_device, gpointer can_instance);
 
+	// triggers a shot at regular intervals, sleeps in between
 	void softwareTriggerThread();
 
-	// Get the child and the child's sibling, where <p___> indicates an indirection.
-	static NODEEX getGcFirstChild(ArvGc *p_genicam, NODEEX nodeex);
-
-	// Get the sibling and the sibling's sibling, where <p___> indicates an indirection.
-	static NODEEX getGcNextSibling(ArvGc *p_genicam, NODEEX nodeex);
-
-	// Walk the DOM tree, i.e. the tree represented by the XML file in the camera, and that contains all the various features, parameters, etc.
-	static void printDOMTree(ArvGc *p_genicam, NODEEX nodeex, const int n_indent);
+	void discoverFeatures();
 
 	// WriteCameraFeaturesFromRosparam()
 	// Read ROS parameters from this node's namespace, and see if each parameter has a similarly named & typed feature in the camera.  Then set the
@@ -136,60 +133,49 @@ protected:
 	std::unique_ptr<dynamic_reconfigure::Server<Config> >	reconfigure_server_;
 	boost::recursive_mutex									reconfigure_mutex_;
 
-	image_transport::CameraPublisher 						publisher_;
+	image_transport::CameraPublisher 						cam_pub_;
 	std::unique_ptr<camera_info_manager::CameraInfoManager> p_camera_info_manager_;
 	sensor_msgs::CameraInfoPtr 								camera_info_;
 
-	Config 									config_;
-	Config 									config_min_;
-	Config 									config_max_;
+	CameraAutoInfo											auto_params_;
+	ros::Publisher											auto_pub_;
+	ros::Subscriber											auto_sub_;
 
-	std::thread								software_trigger_;
-	std::atomic_bool						software_trigger_active_;
-	size_t									n_buffers_ = 0;
+	Config 													config_;
+	Config 													config_min_;
+	Config 													config_max_;
 
-	struct {
-		bool								acquisition_frame_rate			= false;
-		bool								acquisition_frame_rate_enable	= false;
-		bool								gain							= false;
-		bool								exposure_time					= false;
-		bool								exposure_auto					= false;
-		bool								gain_auto						= false;
-		bool								focus_pos						= false;
-		bool								trigger_selector				= false;
-		bool								trigger_source					= false;
-		bool								trigger_mode					= false;
-		bool								acquisition_mode				= false;
-		bool								mtu								= false;
-	} is_implemented_;
+	std::thread												software_trigger_;
+	std::atomic_bool										software_trigger_active_;
+	size_t													n_buffers_ = 0;
+
+	std::unordered_map<std::string, const bool> 			implemented_features_;
 
 	struct {
-		int32_t    							x							= 0;
-		int32_t        						y							= 0;
-		int32_t        						width						= 0;
-		int32_t								width_min					= 0;
-		int32_t								width_max					= 0;
-		int32_t        						height						= 0;
-		int32_t								height_min					= 0;
-		int32_t								height_max					= 0;
+		int32_t    											x							= 0;
+		int32_t        										y							= 0;
+		int32_t        										width						= 0;
+		int32_t												width_min					= 0;
+		int32_t												width_max					= 0;
+		int32_t        										height						= 0;
+		int32_t												height_min					= 0;
+		int32_t												height_max					= 0;
 	} roi_;
 
 	struct {
-		int32_t                             width						= 0;
-		int32_t                             height						= 0;
-		std::string					        sz_pixel_format;
-		size_t								n_bytes_pixel				= 0;
+		int32_t                             				width						= 0;
+		int32_t                             				height						= 0;
+		std::string					        				pixel_format;
+		size_t												n_bytes_pixel				= 0;
 	} sensor_;
 
+//	ros::NodeHandle 					    				p_h_node_;
+	ArvCamera 							   					*p_camera_					= NULL;
+	ArvDevice 							   					*p_device_					= NULL;
+	ArvStream                              					*p_stream_					= NULL;
+	CameraBufferPool::Ptr									p_buffer_pool_;
+	int32_t													acquire_					= 0;
 
-	ros::NodeHandle 					    p_h_node_;
-	ArvCamera 							   *p_camera_					= NULL;
-	ArvDevice 							   *p_device_					= NULL;
-	ArvStream                              *p_stream_					= NULL;
-	CameraBufferPool::Ptr					p_buffer_pool_;
-	int32_t									mtu_						= 0;
-	int32_t									acquire_					= 0;
-	std::string							    key_acquisition_frame_rate_;
 };
 
 } // end namespace camera_aravis
