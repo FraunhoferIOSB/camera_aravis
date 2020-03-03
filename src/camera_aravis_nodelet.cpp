@@ -183,8 +183,31 @@ void CameraAravisNodelet::onInit() {
 	setAutoMaster(config_.AutoMaster);
 	setAutoSlave(config_.AutoSlave);
 
+	bool pub_tf_optical;
+	pnh.param<bool>("publish_tf", pub_tf_optical, false);
+	if (pub_tf_optical) {
+		p_stb_.reset(new tf2_ros::StaticTransformBroadcaster());
+		geometry_msgs::TransformStamped tf_optical;
+		tf_optical.header.frame_id = config_.frame_id;
+		tf_optical.child_frame_id = config_.frame_id + "_optical";
+		tf_optical.transform.translation.x = 0.0;
+		tf_optical.transform.translation.y = 0.0;
+		tf_optical.transform.translation.z = 0.0;
+		tf_optical.transform.rotation.x = -0.5;
+		tf_optical.transform.rotation.y = 0.5;
+		tf_optical.transform.rotation.z = -0.5;
+		tf_optical.transform.rotation.w = 0.5;
+		p_stb_->sendTransform(tf_optical);
+	}
+
+	// default calibration url is DeviceSerialNumber.yaml
+	std::string calib_url(arv_device_get_string_feature_value (p_device_, "DeviceSerialNumber"));
+	calib_url += ".yaml";
+	// check if there is a different one given on parameters server
+	pnh.param<std::string>("camera_info_url", calib_url, calib_url);
 	// Start the camerainfo manager.
-	p_camera_info_manager_.reset(new camera_info_manager::CameraInfoManager(pnh, arv_device_get_string_feature_value (p_device_, "DeviceUserID")));
+	p_camera_info_manager_.reset(new camera_info_manager::CameraInfoManager(pnh, config_.frame_id, calib_url));
+
 
 	// update the reconfigure config
 	reconfigure_server_->setConfigMin(config_min_);

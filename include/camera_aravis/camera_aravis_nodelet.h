@@ -58,6 +58,7 @@ extern "C"
 
 #include <dynamic_reconfigure/server.h>
 #include <tf/transform_listener.h>
+#include <tf2_ros/static_transform_broadcaster.h>
 #include <camera_aravis/CameraAravisConfig.h>
 #include <camera_aravis/CameraAutoInfo.h>
 
@@ -136,6 +137,8 @@ protected:
 	image_transport::CameraPublisher 						cam_pub_;
 	std::unique_ptr<camera_info_manager::CameraInfoManager> p_camera_info_manager_;
 	sensor_msgs::CameraInfoPtr 								camera_info_;
+
+	std::unique_ptr<tf2_ros::StaticTransformBroadcaster>	p_stb_;
 
 	CameraAutoInfo											auto_params_;
 	ros::Publisher											auto_pub_;

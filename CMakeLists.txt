@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   camera_info_manager
   dynamic_reconfigure
   tf
+  tf2_ros
 )
 find_package(Aravis REQUIRED)
 find_package(GLIB2 REQUIRED)
@@ -31,7 +32,7 @@ generate_messages(
 
 catkin_package(
     DEPENDS Aravis GLIB2
-    CATKIN_DEPENDS roscpp nodelet sensor_msgs message_runtime image_transport camera_info_manager dynamic_reconfigure tf
+    CATKIN_DEPENDS roscpp nodelet sensor_msgs message_runtime image_transport camera_info_manager dynamic_reconfigure tf tf2_ros
     INCLUDE_DIRS
     LIBRARIES
 )
