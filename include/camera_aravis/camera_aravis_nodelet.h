@@ -59,6 +59,7 @@ extern "C"
 #include <dynamic_reconfigure/server.h>
 #include <tf/transform_listener.h>
 #include <tf2_ros/static_transform_broadcaster.h>
+#include <tf2_ros/transform_broadcaster.h>
 #include <camera_aravis/CameraAravisConfig.h>
 #include <camera_aravis/CameraAutoInfo.h>
 
@@ -117,7 +118,9 @@ protected:
 	static void controlLostCallback (ArvDevice *p_gv_device, gpointer can_instance);
 
 	// triggers a shot at regular intervals, sleeps in between
-	void softwareTriggerThread();
+	void softwareTriggerLoop();
+
+	void publishTfLoop(double rate);
 
 	void discoverFeatures();
 
@@ -139,6 +142,10 @@ protected:
 	sensor_msgs::CameraInfoPtr 								camera_info_;
 
 	std::unique_ptr<tf2_ros::StaticTransformBroadcaster>	p_stb_;
+	std::unique_ptr<tf2_ros::TransformBroadcaster>			p_tb_;
+	geometry_msgs::TransformStamped							tf_optical_;
+	std::thread												tf_dyn_thread_;
+	std::atomic_bool										tf_thread_active_;
 
 	CameraAutoInfo											auto_params_;
 	ros::Publisher											auto_pub_;
@@ -148,7 +155,7 @@ protected:
 	Config 													config_min_;
 	Config 													config_max_;
 
-	std::thread												software_trigger_;
+	std::thread												software_trigger_thread_;
 	std::atomic_bool										software_trigger_active_;
 	size_t													n_buffers_ = 0;
 

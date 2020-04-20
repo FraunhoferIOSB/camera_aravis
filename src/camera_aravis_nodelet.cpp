@@ -39,8 +39,13 @@ CameraAravisNodelet::~CameraAravisNodelet() {
 	}
 
 	software_trigger_active_ = false;
-	if (software_trigger_.joinable()) {
-		software_trigger_.join();
+	if (software_trigger_thread_.joinable()) {
+		software_trigger_thread_.join();
+	}
+
+	tf_thread_active_ = false;
+	if (tf_dyn_thread_.joinable()) {
+		tf_dyn_thread_.join();
 	}
 
 	guint64 n_completed_buffers;
@@ -183,21 +188,33 @@ void CameraAravisNodelet::onInit() {
 	setAutoMaster(config_.AutoMaster);
 	setAutoSlave(config_.AutoSlave);
 
+	// should we publish tf transforms to camera optical frame?
 	bool pub_tf_optical;
 	pnh.param<bool>("publish_tf", pub_tf_optical, false);
 	if (pub_tf_optical) {
-		p_stb_.reset(new tf2_ros::StaticTransformBroadcaster());
-		geometry_msgs::TransformStamped tf_optical;
-		tf_optical.header.frame_id = config_.frame_id;
-		tf_optical.child_frame_id = config_.frame_id + "_optical";
-		tf_optical.transform.translation.x = 0.0;
-		tf_optical.transform.translation.y = 0.0;
-		tf_optical.transform.translation.z = 0.0;
-		tf_optical.transform.rotation.x = -0.5;
-		tf_optical.transform.rotation.y = 0.5;
-		tf_optical.transform.rotation.z = -0.5;
-		tf_optical.transform.rotation.w = 0.5;
-		p_stb_->sendTransform(tf_optical);
+		tf_optical_.header.frame_id = config_.frame_id;
+		tf_optical_.child_frame_id = config_.frame_id + "_optical";
+		tf_optical_.transform.translation.x = 0.0;
+		tf_optical_.transform.translation.y = 0.0;
+		tf_optical_.transform.translation.z = 0.0;
+		tf_optical_.transform.rotation.x = -0.5;
+		tf_optical_.transform.rotation.y = 0.5;
+		tf_optical_.transform.rotation.z = -0.5;
+		tf_optical_.transform.rotation.w = 0.5;
+
+		double tf_publish_rate;
+		pnh.param<double>("tf_publish_rate", tf_publish_rate, 0);
+		if (tf_publish_rate>0.) {
+			// publish dynamic tf at given rate (recommended when running as a Nodelet, since latching has bugs-by-design)
+			p_tb_.reset(new tf2_ros::TransformBroadcaster());
+			tf_dyn_thread_ = std::thread(&CameraAravisNodelet::publishTfLoop, this, tf_publish_rate);
+		}
+		else {
+			// publish static tf only once (latched)
+			p_stb_.reset(new tf2_ros::StaticTransformBroadcaster());
+			tf_optical_.header.stamp = ros::Time::now();
+			p_stb_->sendTransform(tf_optical_);
+		}
 	}
 
 	// default calibration url is DeviceSerialNumber.yaml
@@ -694,8 +711,8 @@ void CameraAravisNodelet::rosReconfigureCallback(Config &config, uint32_t level)
 	{
 		// delete old software trigger thread if active
 		software_trigger_active_ = false;
-		if (software_trigger_.joinable()) {
-			software_trigger_.join();
+		if (software_trigger_thread_.joinable()) {
+			software_trigger_thread_.join();
 		}
 
 		if (implemented_features_["TriggerSource"])
@@ -715,7 +732,7 @@ void CameraAravisNodelet::rosReconfigureCallback(Config &config, uint32_t level)
 				ROS_INFO ("Set softwaretriggerrate = %f", 1000.0/ceil(1000.0 / config.softwaretriggerrate));
 
 				// Turn on software timer callback.
-				software_trigger_ = std::thread(&CameraAravisNodelet::softwareTriggerThread, this);
+				software_trigger_thread_ = std::thread(&CameraAravisNodelet::softwareTriggerLoop, this);
 			}
 			else {
 				ROS_INFO ("Camera does not support TriggerSoftware command.");
@@ -853,12 +870,12 @@ void CameraAravisNodelet::controlLostCallback (ArvDevice *p_gv_device, gpointer 
 	}
 }
 
-void CameraAravisNodelet::softwareTriggerThread()
+void CameraAravisNodelet::softwareTriggerLoop()
 {
 	software_trigger_active_ = true;
 	ROS_INFO("Software trigger started.");
 	std::chrono::system_clock::time_point next_time = std::chrono::system_clock::now();
-	while (software_trigger_active_) {
+	while (ros::ok() && software_trigger_active_) {
 		next_time += std::chrono::milliseconds(size_t(std::round(1000.0 / config_.softwaretriggerrate)));
 		if (cam_pub_.getNumSubscribers()) {
 			arv_device_execute_command (p_device_, "TriggerSoftware");
@@ -872,6 +889,24 @@ void CameraAravisNodelet::softwareTriggerThread()
 		}
 	}
 	ROS_INFO("Software trigger stopped.");
+}
+
+void CameraAravisNodelet::publishTfLoop(double rate) {
+	// Publish optical transform for the camera
+	ROS_WARN("Publishing dynamic camera transforms (/tf) at %g Hz", rate);
+
+	tf_thread_active_ = true;
+
+	ros::Rate loop_rate(rate);
+
+	while (ros::ok() && tf_thread_active_) {
+		// Update the header for publication
+	    tf_optical_.header.stamp = ros::Time::now();
+	    ++tf_optical_.header.seq;
+	    p_tb_->sendTransform(tf_optical_);
+
+	    loop_rate.sleep();
+	}
 }
 
 void CameraAravisNodelet::discoverFeatures()
