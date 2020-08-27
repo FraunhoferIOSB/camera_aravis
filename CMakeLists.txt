@@ -52,13 +52,13 @@ add_library(${PROJECT_NAME}
   src/camera_buffer_pool.cpp
 )
 target_link_libraries(${PROJECT_NAME} ${LIBRARIES})
-add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}_gencfg)
+add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 add_executable(cam_aravis
   src/camera_aravis_node.cpp
 )
 target_link_libraries(cam_aravis ${PROJECT_NAME} ${LIBRARIES})
-add_dependencies(cam_aravis ${PROJECT_NAME}_gencfg)
+add_dependencies(cam_aravis ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 install(DIRECTORY include/${PROJECT_NAME}/
   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
