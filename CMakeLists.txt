@@ -1,12 +1,13 @@
 cmake_minimum_required(VERSION 2.8.3)
 
-project(camera_aravis)
+project(camera_aravis ${CMAKE_PROJECT_VERSION})
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules)
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   nodelet
+  std_msgs
   sensor_msgs
   message_generation
   image_transport
@@ -32,12 +33,15 @@ generate_messages(
 
 catkin_package(
     DEPENDS Aravis GLIB2
-    CATKIN_DEPENDS roscpp nodelet sensor_msgs message_runtime image_transport camera_info_manager dynamic_reconfigure tf tf2_ros
+    CATKIN_DEPENDS roscpp nodelet std_msgs sensor_msgs message_runtime image_transport camera_info_manager dynamic_reconfigure tf tf2_ros
     INCLUDE_DIRS
     LIBRARIES
 )
 
-include_directories(cfg/cpp ${catkin_INCLUDE_DIRS} ${Aravis_INCLUDE_DIRS} ${GLIB2_INCLUDE_DIRS})
+include_directories(cfg
+  ${catkin_INCLUDE_DIRS}
+  ${Aravis_INCLUDE_DIRS}
+  ${GLIB2_INCLUDE_DIRS})
 
 set(LIBRARIES
   ${catkin_LIBRARIES}
