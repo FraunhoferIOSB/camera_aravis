@@ -78,5 +78,6 @@ install(TARGETS ${PROJECT_NAME} cam_aravis
 
 install(FILES
   nodelet_plugins.xml
+  launch/camera_aravis.launch
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
