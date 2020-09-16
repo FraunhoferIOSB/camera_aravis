@@ -117,6 +117,7 @@ const std::map<std::string, ConversionFunction> CONVERSIONS_DICTIONARY =
  { "BayerGR16", boost::bind(&renameImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_GRBG16) },
  { "YUV422_8_UYVY", boost::bind(&renameImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::YUV422) },
  { "YUV422_8", boost::bind(&renameImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::YUV422) },
+ { "YUV422Packed", boost::bind(&renameImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::YUV422) },
  // non-color contents
  { "Data8", boost::bind(&renameImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::TYPE_8UC1) },
  { "Confidence8", boost::bind(&renameImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::TYPE_8UC1) },
