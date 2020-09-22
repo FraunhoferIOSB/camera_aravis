@@ -118,7 +118,6 @@ const std::map<std::string, ConversionFunction> CONVERSIONS_DICTIONARY =
  { "BayerGR16", boost::bind(&renameImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_GRBG16) },
  { "YUV422_8_UYVY", boost::bind(&renameImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::YUV422) },
  { "YUV422_8", boost::bind(&renameImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::YUV422) },
- { "YUV422Packed", boost::bind(&renameImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::YUV422) },
  // non-color contents
  { "Data8", boost::bind(&renameImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::TYPE_8UC1) },
  { "Confidence8", boost::bind(&renameImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::TYPE_8UC1) },
@@ -172,7 +171,20 @@ const std::map<std::string, ConversionFunction> CONVERSIONS_DICTIONARY =
  { "BayerGB12p", boost::bind(&unpack12pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_GBRG16) },
  { "BayerGR12p", boost::bind(&unpack12pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_GRBG16) },
  { "RGB565p", boost::bind(&unpack565pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::RGB8) },
- { "BGR565p", boost::bind(&unpack565pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BGR8) }
+ { "BGR565p", boost::bind(&unpack565pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BGR8) },
+ // GigE-Vision specific format naming
+ { "RGB10V1Packed", boost::bind(&unpack10pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::RGB16) },
+ { "RGB12V1Packed", boost::bind(&unpack12pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::RGB16) },
+ { "Mono12Packed", boost::bind(&unpack12pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::MONO16) },
+ { "BayerRG10Packed", boost::bind(&unpack10pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_RGGB16) },
+ { "BayerBG10Packed", boost::bind(&unpack10pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_BGGR16) },
+ { "BayerGB10Packed", boost::bind(&unpack10pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_GBRG16) },
+ { "BayerGR10Packed", boost::bind(&unpack10pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_GRBG16) },
+ { "BayerRG12Packed", boost::bind(&unpack12pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_RGGB16) },
+ { "BayerBG12Packed", boost::bind(&unpack12pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_BGGR16) },
+ { "BayerGB12Packed", boost::bind(&unpack12pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_GBRG16) },
+ { "BayerGR12Packed", boost::bind(&unpack12pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_GRBG16) },
+ { "YUV422Packed", boost::bind(&renameImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::YUV422) }
 };
 
 class CameraAravisNodelet : public nodelet::Nodelet
