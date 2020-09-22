@@ -170,7 +170,7 @@ void unpack12pImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const s
   out->data.resize((4*in->data.size())/3);
 
   // change pixel bit alignment from every 2*12=24 Bit format
-  // AAAAAA AAAABBBB BBBBBBBB
+  // AAAAAAAA AAAABBBB BBBBBBBB
   // into 2*16=32 Bit format
   // AAAAAAAA AA000000 BBBBBBBB BB000000
 
@@ -404,7 +404,7 @@ void CameraAravisNodelet::onInit()
     ROS_WARN_STREAM("There is no known conversion from " << sensor_.pixel_format << " to a usual ROS image encoding. Likely you need to implement one.");
   }
 
-  sensor_.n_bytes_pixel = ARV_PIXEL_FORMAT_BYTE_PER_PIXEL(
+  sensor_.n_bits_pixel = ARV_PIXEL_FORMAT_BIT_PER_PIXEL(
       arv_device_get_integer_feature_value(p_device_, "PixelFormat"));
   config_.FocusPos =
       implemented_features_["FocusPos"] ? arv_device_get_integer_feature_value(p_device_, "FocusPos") : 0;
@@ -480,7 +480,7 @@ void CameraAravisNodelet::onInit()
   ROS_INFO("    Sensor height        = %d", sensor_.height);
   ROS_INFO("    ROI x,y,w,h          = %d, %d, %d, %d", roi_.x, roi_.y, roi_.width, roi_.height);
   ROS_INFO("    Pixel format         = %s", sensor_.pixel_format.c_str());
-  ROS_INFO("    BytesPerPixel        = %lu", sensor_.n_bytes_pixel);
+  ROS_INFO("    BitsPerPixel         = %lu", sensor_.n_bits_pixel);
   ROS_INFO(
       "    Acquisition Mode     = %s",
       implemented_features_["AcquisitionMode"] ? arv_device_get_string_feature_value(p_device_, "AcquisitionMode") :
@@ -1107,7 +1107,7 @@ void CameraAravisNodelet::newBufferReadyCallback(ArvStream *p_stream, gpointer c
       msg_ptr->width = p_can->roi_.width;
       msg_ptr->height = p_can->roi_.height;
       msg_ptr->encoding = p_can->sensor_.pixel_format;
-      msg_ptr->step = msg_ptr->width * p_can->sensor_.n_bytes_pixel;
+      msg_ptr->step = (msg_ptr->width * p_can->sensor_.n_bits_pixel)/8;
 
       // do the magic of conversion into a ROS format
       if (p_can->convert_format) {

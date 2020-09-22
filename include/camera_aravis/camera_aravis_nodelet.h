@@ -70,8 +70,6 @@ namespace camera_aravis
 
 typedef CameraAravisConfig Config;
 
-#define ARV_PIXEL_FORMAT_BYTE_PER_PIXEL(pixel_format) ((((pixel_format) >> 16) & 0xff) >> 3)
-
 // Conversions from integers to Arv types.
 const char *szBufferStatusFromInt[] = {"ARV_BUFFER_STATUS_SUCCESS", "ARV_BUFFER_STATUS_CLEARED",
                                        "ARV_BUFFER_STATUS_TIMEOUT", "ARV_BUFFER_STATUS_MISSING_PACKETS",
@@ -284,7 +282,7 @@ protected:
     int32_t width = 0;
     int32_t height = 0;
     std::string pixel_format;
-    size_t n_bytes_pixel = 0;
+    size_t n_bits_pixel = 0;
   } sensor_;
 
   ArvCamera *p_camera_ = NULL;
