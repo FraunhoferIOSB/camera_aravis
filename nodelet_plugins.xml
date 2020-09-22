@@ -1,7 +1,7 @@
 <library path="lib/libcamera_aravis">
   <class name="camera_aravis/CameraAravisNodelet" type="camera_aravis::CameraAravisNodelet" base_class_type="nodelet::Nodelet">
   <description>
-    The Aravis camera nodelet.
+    The Aravis camera nodelet. It provides a complete and comfortable driver for GenICam (USB3-Vision and GigE-Vision) compatible cameras.
   </description>
   </class>
 </library>

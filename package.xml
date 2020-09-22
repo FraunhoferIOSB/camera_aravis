@@ -1,7 +1,8 @@
+<?xml version="1.0"?>
 <package format="2">
   <name>camera_aravis</name>
   <version>3.0.0</version>
-  <description>camera_aravis: A GenICam/USB3Vision based camera driver for ROS (ethernet and usb).</description>
+  <description>camera_aravis: A complete and comfortable GenICam (USB3Vision and GigEVision) based camera driver for ROS (ethernet and usb).</description>
 
   <maintainer email="dominik.klein@fkie.fraunhofer.de">Dominik A. Klein, Fraunhofer FKIE</maintainer>
 
@@ -28,6 +29,7 @@
   <depend>tf2_ros</depend>
   <!--depend>aravis</depend-->
   
+  <!--build_depend>aravis-dev</build_depend-->
   <build_depend>message_generation</build_depend>
   <exec_depend>message_runtime</exec_depend>
   

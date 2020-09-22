@@ -56,6 +56,7 @@ extern "C" {
 #include <camera_info_manager/camera_info_manager.h>
 
 #include <dynamic_reconfigure/server.h>
+#include <dynamic_reconfigure/SensorLevels.h>
 #include <tf/transform_listener.h>
 #include <tf2_ros/static_transform_broadcaster.h>
 #include <tf2_ros/transform_broadcaster.h>
