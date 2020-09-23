@@ -108,7 +108,7 @@ void interleaveImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const 
   out->encoding = out_format;
 }
 
-void unpack10pImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const std::string out_format) {
+void unpack10p32Img(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const std::string out_format) {
   if (!in) {
     ROS_WARN("camera_aravis::unpack10pImg(): no input image given.");
     return;
@@ -155,6 +155,52 @@ void unpack10pImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const s
 
   out->encoding = out_format;
 }
+
+void unpack10PackedImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const std::string out_format) {
+  if (!in) {
+    ROS_WARN("camera_aravis::unpack10pImg(): no input image given.");
+    return;
+  }
+
+  if (!out) {
+    out.reset(new sensor_msgs::Image);
+    ROS_INFO("camera_aravis::unpack10pImg(): no output image given. Reserved a new one.");
+  }
+
+  out->header = in->header;
+  out->height = in->height;
+  out->width = in->width;
+  out->is_bigendian = in->is_bigendian;
+  out->step = (3*in->step)/2;
+  out->data.resize((3*in->data.size())/2);
+
+  // change pixel bit alignment from every 3*10+2 = 32 Bit = 4 Byte format
+  //  byte 3 | byte 2 | byte 1 | byte 0
+  // AAAAAAAA BBBBBBBB CCCCCCCC 00CCBBAA
+  // into 3*16 = 48 Bit = 6 Byte format
+  //  bytes 5+4       | bytes 3+2       | bytes 1+0
+  // CCCCCCCC CC000000 BBBBBBBB BB000000 AAAAAAAA AA000000
+
+  // note that in this old style GigE format, byte 0 contains the lsb of C, B as well as A
+
+  uint8_t* from = in->data.data();
+  uint8_t* to = out->data.data();
+  // unpack a RGB pixel per iteration
+  for (size_t i=0; i<in->data.size()/4; ++i) {
+
+    to[0] = from[0]<<6;
+    to[1] = from[3];
+    to[2] = (from[0] & 0b00001100)<<4;
+    to[3] = from[2];
+    to[4] = (from[0] & 0b00110000)<<2;
+    to[5] = from[1];
+
+    to+=6;
+    from+=4;
+  }
+  out->encoding = out_format;
+}
+
 
 void unpack10pMonoImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const std::string out_format) {
   if (!in) {
@@ -206,6 +252,50 @@ void unpack10pMonoImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, con
   out->encoding = out_format;
 }
 
+void unpack10PackedMonoImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const std::string out_format) {
+  if (!in) {
+    ROS_WARN("camera_aravis::unpack10pImg(): no input image given.");
+    return;
+  }
+
+  if (!out) {
+    out.reset(new sensor_msgs::Image);
+    ROS_INFO("camera_aravis::unpack10pImg(): no output image given. Reserved a new one.");
+  }
+
+  out->header = in->header;
+  out->height = in->height;
+  out->width = in->width;
+  out->is_bigendian = in->is_bigendian;
+  out->step = (4*in->step)/3;
+  out->data.resize((4*in->data.size())/3);
+
+  // change pixel bit alignment from every 2*10+4 = 24 Bit = 3 Byte format
+  //  byte 2 | byte 1 | byte 0
+  // BBBBBBBB 00BB00AA AAAAAAAA
+  // into 2*16 = 32 Bit = 4 Byte format
+  //  bytes 3+2       | bytes 1+0
+  // BBBBBBBB BB000000 AAAAAAAA AA000000
+
+  // note that in this old style GigE format, byte 1 contains the lsb of B as well as A
+
+  uint8_t* from = in->data.data();
+  uint8_t* to = out->data.data();
+  // unpack 4 mono pixels per iteration
+  for (size_t i=0; i<in->data.size()/3; ++i) {
+
+    to[0] = from[1]<<6;
+    to[1] = from[0];
+
+    to[2] = from[1] & 0b11000000;
+    to[3] = from[2];
+
+    to+=4;
+    from+=3;
+  }
+  out->encoding = out_format;
+}
+
 void unpack12pImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const std::string out_format) {
   if (!in) {
     ROS_WARN("camera_aravis::unpack12pImg(): no input image given.");
@@ -243,6 +333,50 @@ void unpack12pImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const s
     to[1] &= 0b1111111111110000;
 
     to+=2;
+    from+=3;
+  }
+  out->encoding = out_format;
+}
+
+void unpack12PackedImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const std::string out_format) {
+  if (!in) {
+    ROS_WARN("camera_aravis::unpack12pImg(): no input image given.");
+    return;
+  }
+
+  if (!out) {
+    out.reset(new sensor_msgs::Image);
+    ROS_INFO("camera_aravis::unpack12pImg(): no output image given. Reserved a new one.");
+  }
+
+  out->header = in->header;
+  out->height = in->height;
+  out->width = in->width;
+  out->is_bigendian = in->is_bigendian;
+  out->step = (4*in->step)/3;
+  out->data.resize((4*in->data.size())/3);
+
+  // change pixel bit alignment from every 2*12 = 24 Bit = 3 Byte format
+  //  byte 2 | byte 1 | byte 0
+  // BBBBBBBB BBBBAAAA AAAAAAAA
+  // into 2*16 = 32 Bit = 4 Byte format
+  //  bytes 3+2       | bytes 1+0
+  // BBBBBBBB BBBB0000 AAAAAAAA AAAA0000
+
+  // note that in this old style GigE format, byte 1 contains the lsb of B as well as A
+
+  uint8_t* from = in->data.data();
+  uint8_t* to = out->data.data();
+  // unpack 2 values per iteration
+  for (size_t i=0; i<in->data.size()/3; ++i) {
+
+    to[0] = from[1]<<4;
+    to[1] = from[0];
+
+    to[2] = from[1] & 0b11110000;
+    to[3] = from[2];
+
+    to+=4;
     from+=3;
   }
   out->encoding = out_format;

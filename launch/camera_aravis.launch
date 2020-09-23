@@ -10,8 +10,8 @@
   <arg name="camera_info_url"          default=""/>
   
   <arg name="pixel_format"             default="BGR8"/>
-  <arg name="width"                    default="720"/>
-  <arg name="height"                   default="540"/>
+  <arg name="width"                    default="640"/>
+  <arg name="height"                   default="480"/>
   <arg name="fps"                      default="25"/>
   
 
