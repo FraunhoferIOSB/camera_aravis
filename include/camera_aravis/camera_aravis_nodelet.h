@@ -82,6 +82,7 @@ void renameImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const std:
 void shiftImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const size_t n_digits, const std::string out_format);
 void interleaveImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const size_t n_digits, const std::string out_format);
 void unpack10pImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const std::string out_format);
+void unpack10pMonoImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const std::string out_format);
 void unpack12pImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const std::string out_format);
 void unpack565pImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const std::string out_format);
 
@@ -149,16 +150,16 @@ const std::map<std::string, ConversionFunction> CONVERSIONS_DICTIONARY =
  { "RGB12_Planar", boost::bind(&interleaveImg, boost::placeholders::_1, boost::placeholders::_2, 4, sensor_msgs::image_encodings::RGB16) },
  { "RGB16_Planar", boost::bind(&interleaveImg, boost::placeholders::_1, boost::placeholders::_2, 0, sensor_msgs::image_encodings::RGB16) },
  // packed, non-Byte aligned formats
- { "Mono10p", boost::bind(&unpack10pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::MONO16) },
+ { "Mono10p", boost::bind(&unpack10pMonoImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::MONO16) },
  { "RGB10p", boost::bind(&unpack10pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::RGB16) },
  { "RGB10p32", boost::bind(&unpack10pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::RGB16) },
  { "RGBa10p", boost::bind(&unpack10pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::RGBA16) },
  { "BGR10p", boost::bind(&unpack10pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BGR16) },
  { "BGRa10p", boost::bind(&unpack10pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BGRA16) },
- { "BayerRG10p", boost::bind(&unpack10pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_RGGB16) },
- { "BayerBG10p", boost::bind(&unpack10pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_BGGR16) },
- { "BayerGB10p", boost::bind(&unpack10pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_GBRG16) },
- { "BayerGR10p", boost::bind(&unpack10pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_GRBG16) },
+ { "BayerRG10p", boost::bind(&unpack10pMonoImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_RGGB16) },
+ { "BayerBG10p", boost::bind(&unpack10pMonoImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_BGGR16) },
+ { "BayerGB10p", boost::bind(&unpack10pMonoImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_GBRG16) },
+ { "BayerGR10p", boost::bind(&unpack10pMonoImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_GRBG16) },
  { "Mono12p", boost::bind(&unpack12pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::MONO16) },
  { "RGB12p", boost::bind(&unpack12pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::RGB16) },
  { "RGBa12p", boost::bind(&unpack12pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::RGBA16) },
@@ -174,10 +175,10 @@ const std::map<std::string, ConversionFunction> CONVERSIONS_DICTIONARY =
  { "RGB10V1Packed", boost::bind(&unpack10pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::RGB16) },
  { "RGB12V1Packed", boost::bind(&unpack12pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::RGB16) },
  { "Mono12Packed", boost::bind(&unpack12pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::MONO16) },
- { "BayerRG10Packed", boost::bind(&unpack10pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_RGGB16) },
- { "BayerBG10Packed", boost::bind(&unpack10pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_BGGR16) },
- { "BayerGB10Packed", boost::bind(&unpack10pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_GBRG16) },
- { "BayerGR10Packed", boost::bind(&unpack10pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_GRBG16) },
+ { "BayerRG10Packed", boost::bind(&unpack10pMonoImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_RGGB16) },
+ { "BayerBG10Packed", boost::bind(&unpack10pMonoImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_BGGR16) },
+ { "BayerGB10Packed", boost::bind(&unpack10pMonoImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_GBRG16) },
+ { "BayerGR10Packed", boost::bind(&unpack10pMonoImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_GRBG16) },
  { "BayerRG12Packed", boost::bind(&unpack12pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_RGGB16) },
  { "BayerBG12Packed", boost::bind(&unpack12pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_BGGR16) },
  { "BayerGB12Packed", boost::bind(&unpack12pImg, boost::placeholders::_1, boost::placeholders::_2, sensor_msgs::image_encodings::BAYER_GBRG16) },
@@ -259,11 +260,6 @@ protected:
   size_t n_buffers_ = 0;
 
   std::unordered_map<std::string, const bool> implemented_features_;
-
-  bool do_unpack_ = false;
-  static sensor_msgs::ImagePtr unpackImg(sensor_msgs::ImagePtr img_msg);
-  bool do_interleave_ = false;
-  static sensor_msgs::ImagePtr interleaveImg(sensor_msgs::ImagePtr img_msg);
 
   struct
   {

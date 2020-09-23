@@ -126,27 +126,82 @@ void unpack10pImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const s
   out->step = (3*in->step)/2;
   out->data.resize((3*in->data.size())/2);
 
-  // change pixel bit alignment from every 3*10+2=32 Bit format
-  // 00AAAAAA AAAABBBB BBBBBBCC CCCCCCCC
-  // into 3*16=48 Bit format
-  // AAAAAAAA AA000000 BBBBBBBB BB000000 CCCCCCCC CC000000
+  // change pixel bit alignment from every 3*10+2 = 32 Bit = 4 Byte format LSB
+  //  byte 3 | byte 2 | byte 1 | byte 0
+  // 00CCCCCC CCCCBBBB BBBBBBAA AAAAAAAA
+  // into 3*16 = 48 Bit = 6 Byte format
+  //  bytes 5+4       | bytes 3+2       | bytes 1+0
+  // CCCCCCCC CC000000 BBBBBBBB BB000000 AAAAAAAA AA000000
 
-  uint32_t pixel_buf;
-  uint32_t* from = reinterpret_cast<uint32_t*>(in->data.data());
+  uint8_t* from = in->data.data();
   uint16_t* to = reinterpret_cast<uint16_t*>(out->data.data());
-  // unpack a whole pixel per iteration
+  // unpack a full RGB pixel per iteration
   for (size_t i=0; i<in->data.size()/4; ++i) {
-    pixel_buf = (*from);
-    to[2] = pixel_buf;
-    to[2] <<= 6;
-    pixel_buf >>= 10;
-    to[1] = pixel_buf;
-    to[1] <<= 6;
-    pixel_buf >>= 10;
-    to[0] = pixel_buf;
+
+    std::memcpy(to, from, 2);
     to[0] <<= 6;
+
+    std::memcpy(&to[1], &from[1], 2);
+    to[1] <<= 4;
+    to[1] &= 0b1111111111000000;
+
+    std::memcpy(&to[2], &from[2], 2);
+    to[2] <<= 2;
+    to[2] &= 0b1111111111000000;
+
     to+=3;
-    ++from;
+    from+=4;
+  }
+
+  out->encoding = out_format;
+}
+
+void unpack10pMonoImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const std::string out_format) {
+  if (!in) {
+    ROS_WARN("camera_aravis::unpack10pImg(): no input image given.");
+    return;
+  }
+
+  if (!out) {
+    out.reset(new sensor_msgs::Image);
+    ROS_INFO("camera_aravis::unpack10pImg(): no output image given. Reserved a new one.");
+  }
+
+  out->header = in->header;
+  out->height = in->height;
+  out->width = in->width;
+  out->is_bigendian = in->is_bigendian;
+  out->step = (8*in->step)/5;
+  out->data.resize((8*in->data.size())/5);
+
+  // change pixel bit alignment from every 4*10 = 40 Bit = 5 Byte format LSB
+  // byte 4  | byte 3 | byte 2 | byte 1 | byte 0
+  // DDDDDDDD DDCCCCCC CCCCBBBB BBBBBBAA AAAAAAAA
+  // into 4*16 = 64 Bit = 8 Byte format
+  // bytes 7+6        | bytes 5+4       | bytes 3+2       | bytes 1+0
+  // DDDDDDDD DD000000 CCCCCCCC CC000000 BBBBBBBB BB000000 AAAAAAAA AA000000
+
+  uint8_t* from = in->data.data();
+  uint16_t* to = reinterpret_cast<uint16_t*>(out->data.data());
+  // unpack 4 mono pixels per iteration
+  for (size_t i=0; i<in->data.size()/5; ++i) {
+
+    std::memcpy(to, from, 2);
+    to[0] <<= 6;
+
+    std::memcpy(&to[1], &from[1], 2);
+    to[1] <<= 4;
+    to[1] &= 0b1111111111000000;
+
+    std::memcpy(&to[2], &from[2], 2);
+    to[2] <<= 2;
+    to[2] &= 0b1111111111000000;
+
+    std::memcpy(&to[3], &from[3], 2);
+    to[3] &= 0b1111111111000000;
+
+    to+=4;
+    from+=5;
   }
   out->encoding = out_format;
 }
@@ -169,19 +224,24 @@ void unpack12pImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const s
   out->step = (4*in->step)/3;
   out->data.resize((4*in->data.size())/3);
 
-  // change pixel bit alignment from every 2*12=24 Bit format
-  // AAAAAAAA AAAABBBB BBBBBBBB
-  // into 2*16=32 Bit format
-  // AAAAAAAA AA000000 BBBBBBBB BB000000
+  // change pixel bit alignment from every 2*12 = 24 Bit = 3 Byte format LSB
+  //  byte 2 | byte 1 | byte 0
+  // BBBBBBBB BBBBAAAA AAAAAAAA
+  // into 2*16 = 32 Bit = 4 Byte format
+  //  bytes 3+2       | bytes 1+0
+  // BBBBBBBB BBBB0000 AAAAAAAA AAAA0000
 
   uint8_t* from = in->data.data();
   uint16_t* to = reinterpret_cast<uint16_t*>(out->data.data());
   // unpack 2 values per iteration
   for (size_t i=0; i<in->data.size()/3; ++i) {
-    to[0] = *reinterpret_cast<uint16_t*>(from);
-    to[0] &= 0b1111111111110000;
-    to[1] = *reinterpret_cast<uint16_t*>(&from[1]);
-    to[1] <<= 4;
+
+    std::memcpy(to, from, 2);
+    to[0] <<= 4;
+
+    std::memcpy(&to[1], &from[1], 2);
+    to[1] &= 0b1111111111110000;
+
     to+=2;
     from+=3;
   }
@@ -206,23 +266,25 @@ void unpack565pImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const 
   out->step = (3*in->step)/2;
   out->data.resize((3*in->data.size())/2);
 
-  // change pixel bit alignment from every 5+6+5=16 Bit format
-  // AAAAABBB BBBCCCCC
-  // into 3*8=24 Bit format
-  // AAAAA000 BBBBBB00 CCCCC000
+  // change pixel bit alignment from every 5+6+5 = 16 Bit = 2 Byte format LSB
+  //  byte 1 | byte 0
+  // CCCCCBBB BBBAAAAA
+  // into 3*8 = 24 Bit = 3 Byte format
+  //  byte 2 | byte 1 | byte 0
+  // CCCCC000 BBBBBB00 AAAAA000
 
   uint8_t* from = in->data.data();
   uint8_t* to = out->data.data();
-  // unpack a whole pixel per iteration
+  // unpack a whole RGB pixel per iteration
   for (size_t i=0; i<in->data.size()/2; ++i) {
-    to[0] = from[0];
-    to[0] &= 0b11111000;
-    to[1] = from[0];
-    to[1] <<= 5;
-    to[1] |= (from[1]>>3);
+    to[0] = from[0] << 3;
+
+    to[1] = from[0] >> 3;
+    to[1] |= (from[1]<<5);
     to[1] &= 0b11111100;
-    to[2] = from[1];
-    to[2] <<= 3;
+
+    to[2] = from[1] & 0b11111000;
+
     to+=3;
     from+=2;
   }
@@ -364,6 +426,9 @@ void CameraAravisNodelet::onInit()
     arv_device_set_integer_feature_value(p_device_, "AcquisitionFrameRateEnable", 1);
   if (implemented_features_["AcquisitionFrameRate"])
     arv_camera_set_frame_rate(p_camera_, config_.AcquisitionFrameRate);
+
+  // init default to full sensor resolution
+  arv_camera_set_region (p_camera_, 0, 0, sensor_.width, sensor_.height);
 
   // Set up the triggering.
   if (implemented_features_["TriggerMode"] && implemented_features_["TriggerSelector"])
@@ -1340,17 +1405,6 @@ void CameraAravisNodelet::writeCameraFeaturesFromRosparam()
       }
     }
   }
-}
-
-sensor_msgs::ImagePtr CameraAravisNodelet::unpackImg(sensor_msgs::ImagePtr img_msg)
-{
-  return img_msg;
-}
-
-sensor_msgs::ImagePtr CameraAravisNodelet::interleaveImg(sensor_msgs::ImagePtr img_msg)
-{
-
-  return img_msg;
 }
 
 } // end namespace camera_aravis
