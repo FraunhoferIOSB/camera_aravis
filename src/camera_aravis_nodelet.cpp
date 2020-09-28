@@ -649,9 +649,27 @@ void CameraAravisNodelet::onInit()
     }
   }
 
-  // default calibration url is DeviceSerialNumber.yaml
-  std::string calib_url(arv_device_get_string_feature_value(p_device_, "DeviceSerialNumber"));
-  calib_url += ".yaml";
+  // default calibration url is [DeviceSerialNumber/DeviceID].yaml
+  std::string calib_url = "";
+  ArvGcNode *p_gc_node;
+  GError *error = NULL;
+
+  p_gc_node = arv_device_get_feature(p_device_, "DeviceSerialNumber");
+
+  if( arv_gc_feature_node_is_implemented( ARV_GC_FEATURE_NODE(p_gc_node), &error) ) {
+    GType device_serial_return_type = arv_gc_feature_node_get_value_type( ARV_GC_FEATURE_NODE(p_gc_node));
+    // If the feature DeviceSerialNumber is not string, it indicates that the camera is using an older version of the genicam SFNC.
+    // Older camera models do not have a DeviceSerialNumber as string, but as integer and often set to 0. 
+    // In those cases use the outdated DeviceID (deprecated since genicam SFNC v2.0).
+    if (device_serial_return_type == G_TYPE_STRING) { 
+      calib_url = arv_device_get_string_feature_value(p_device_, "DeviceSerialNumber");
+      
+    } else if (device_serial_return_type == G_TYPE_INT64) {
+      calib_url = arv_device_get_string_feature_value(p_device_, "DeviceID");
+      calib_url += ".yaml";
+    }
+  } 
+  
   // check if there is a different one given on parameters server
   pnh.param<std::string>("camera_info_url", calib_url, calib_url);
   // Start the camerainfo manager.
