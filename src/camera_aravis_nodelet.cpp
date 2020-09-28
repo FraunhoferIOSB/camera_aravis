@@ -663,7 +663,7 @@ void CameraAravisNodelet::onInit()
     // In those cases use the outdated DeviceID (deprecated since genicam SFNC v2.0).
     if (device_serial_return_type == G_TYPE_STRING) { 
       calib_url = arv_device_get_string_feature_value(p_device_, "DeviceSerialNumber");
-      
+      calib_url += ".yaml";
     } else if (device_serial_return_type == G_TYPE_INT64) {
       calib_url = arv_device_get_string_feature_value(p_device_, "DeviceID");
       calib_url += ".yaml";
