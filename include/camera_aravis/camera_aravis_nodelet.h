@@ -54,6 +54,7 @@ extern "C" {
 #include <sensor_msgs/image_encodings.h>
 #include <image_transport/image_transport.h>
 #include <camera_info_manager/camera_info_manager.h>
+#include <boost/algorithm/string/trim.hpp>
 
 #include <dynamic_reconfigure/server.h>
 #include <dynamic_reconfigure/SensorLevels.h>
@@ -219,6 +220,9 @@ protected:
   // Callback to wrap and send recorded image as ROS message
   static void newBufferReadyCallback(ArvStream *p_stream, gpointer can_instance);
 
+  // Buffer Callback Helper
+  static void newBufferReady(ArvStream *p_stream, CameraAravisNodelet *p_can, std::string frame_id, size_t stream_id);
+
   // Clean-up if aravis device is lost
   static void controlLostCallback(ArvDevice *p_gv_device, gpointer can_instance);
 
@@ -228,6 +232,8 @@ protected:
   void publishTfLoop(double rate);
 
   void discoverFeatures();
+
+  static void parseStringArgs(std::string in_arg_string, std::vector<std::string> &out_args);
 
   // WriteCameraFeaturesFromRosparam()
   // Read ROS parameters from this node's namespace, and see if each parameter has a similarly named & typed feature in the camera.  Then set the
@@ -242,9 +248,9 @@ protected:
   std::unique_ptr<dynamic_reconfigure::Server<Config> > reconfigure_server_;
   boost::recursive_mutex reconfigure_mutex_;
 
-  image_transport::CameraPublisher cam_pub_;
-  std::unique_ptr<camera_info_manager::CameraInfoManager> p_camera_info_manager_;
-  sensor_msgs::CameraInfoPtr camera_info_;
+  std::vector<image_transport::CameraPublisher> cam_pubs_;
+  std::vector<std::unique_ptr<camera_info_manager::CameraInfoManager>> p_camera_info_managers_;
+  std::vector<sensor_msgs::CameraInfoPtr> camera_infos_;
 
   std::unique_ptr<tf2_ros::StaticTransformBroadcaster> p_stb_;
   std::unique_ptr<tf2_ros::TransformBroadcaster> p_tb_;
@@ -278,18 +284,28 @@ protected:
     int32_t height_max = 0;
   } roi_;
 
-  struct
+  struct Sensor
   {
     int32_t width = 0;
     int32_t height = 0;
     std::string pixel_format;
     size_t n_bits_pixel = 0;
-  } sensor_;
+  };
+
+  std::vector<Sensor *> sensors_;
+
+  struct StreamIdData
+  {
+    CameraAravisNodelet* can;
+    size_t stream_id;
+  };
 
   ArvCamera *p_camera_ = NULL;
   ArvDevice *p_device_ = NULL;
-  ArvStream *p_stream_ = NULL;
-  CameraBufferPool::Ptr p_buffer_pool_;
+  gint num_streams_;
+  std::vector<ArvStream *> p_streams_;
+  std::vector<std::string> stream_names_;
+  std::vector<CameraBufferPool::Ptr> p_buffer_pools_;
   int32_t acquire_ = 0;
   ConversionFunction convert_format;
 };

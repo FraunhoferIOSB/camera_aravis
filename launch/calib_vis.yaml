@@ -1,0 +1,26 @@
+image_width: 2048
+image_height: 1536
+camera_name: aravis_cam/vis
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [ 2010.61929873838, 0.0, 1030.573710903634, 0.0, 2009.681874511136, 775.4370294099587, 0.0, 0.0, 1.0 ]
+distortion_model: plumb_bob
+distortion_coefficients:
+  rows: 1
+  cols: 5
+  data: [ -0.171190020779902, 0.1112333492198235, 7.641498959483757e-05, 0.0001101821761879883, -0.01076536704135967 ]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [ 1.000000, 0.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000, 0.000000, 1.000000 ]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [ 2010.61929873838, 0.0, 1030.573710903634, 0.0, 0.0, 2009.681874511136, 775.4370294099587, 0.0, 0.0, 0.0, 1.0, 0.0 ]
+roi:
+  width: 2048
+  height: 1536
+  x_offset: 0
+  y_offset: 0
+  do_rectify: 0
