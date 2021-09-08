@@ -845,17 +845,15 @@ void CameraAravisNodelet::onInit()
   for(int i = 0; i < num_streams_; i++) {
     image_transport::ImageTransport *p_transport;
     // Set up image_raw
-    std::string frame_id = "";
+    std::string topic_name = ros::this_node::getNamespace();
     p_transport = new image_transport::ImageTransport(pnh);
-    if(num_streams_ == 1 && stream_names_[i].empty()) {
-      frame_id = "";
-    } else {
-      frame_id = stream_names_[i] + "/";
+    if(num_streams_ != 1 || !stream_names_[i].empty()) {
+      topic_name += "/" + stream_names_[i];
     }
 
     ROS_INFO("Mapping to %s", (frame_id + "image_raw").c_str());
     cam_pubs_[i] = p_transport->advertiseCamera(
-      ros::names::remap(frame_id + "image_raw"),
+      ros::names::remap(topic_name + "/image_raw"),
       1, image_cb, image_cb, info_cb, info_cb);
   }
 
@@ -1398,14 +1396,13 @@ void CameraAravisNodelet::newBufferReadyCallback(ArvStream *p_stream, gpointer c
   size_t stream_id = data->stream_id;
   image_transport::CameraPublisher *p_cam_pub = &p_can->cam_pubs_[stream_id];
 
-  std::string stream_frame_id = "";
-  // extend frame id
-  if( !p_can->stream_names_[stream_id].empty() )
+  if( p_can->stream_names_[stream_id].empty() )
   {
-    stream_frame_id += p_can->stream_names_[stream_id];
+    newBufferReady(p_stream, p_can, p_can->config_.frame_id, stream_id);
+  } else {
+    const std::string stream_frame_id = p_can->config_.frame_id + "/" + p_can->stream_names_[stream_id];
+    newBufferReady(p_stream, p_can, stream_frame_id, stream_id);
   }
-
-  newBufferReady(p_stream, p_can, stream_frame_id, stream_id);
 
 }
 
@@ -1436,11 +1433,7 @@ void CameraAravisNodelet::newBufferReady(ArvStream *p_stream, CameraAravisNodele
       // get frame sequence number
       msg_ptr->header.seq = arv_buffer_get_frame_id(p_buffer);
       // fill other stream properties
-      if (frame_id.empty()) {
-        msg_ptr->header.frame_id = p_can->getName(); 
-      } else {
-        msg_ptr->header.frame_id = p_can->getName()  + '/' + frame_id; 
-      }
+      msg_ptr->header.frame_id = frame_id;
       msg_ptr->width = p_can->roi_.width;
       msg_ptr->height = p_can->roi_.height;
       msg_ptr->encoding = p_can->sensors_[stream_id]->pixel_format;
