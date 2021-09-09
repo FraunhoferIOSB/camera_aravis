@@ -21,51 +21,55 @@
     <param name="num_worker_threads" value="$(arg manager_threads)" />
   </node>
 
-  <!-- Aravis RGB+NIR camera nodelet -->
-  <node pkg="nodelet" type="nodelet" name="$(arg sensor_name)" args="standalone camera_aravis/CameraAravisNodelet" output="screen">
+  <group ns="$(arg sensor_name)">
 
-    <param name="guid"                 value="$(arg serial_no)"/>
-    <param name="camera_info_url"      value="$(arg camera_info_url)"/>
-    <param name="frame_id"             value="$(arg sensor_name)"/>
+    <!-- Aravis RGB+NIR camera nodelet -->
+    <node pkg="nodelet" type="nodelet" name="$(arg sensor_name)" args="standalone camera_aravis/CameraAravisNodelet" output="screen">
 
-    <!-- Multisource Camera -->
-    <param name="channel_names" value="$(arg channel_names)"/>
+      <param name="guid"                 value="$(arg serial_no)"/>
+      <param name="camera_info_url"      value="$(arg camera_info_url)"/>
+      <param name="frame_id"             value="$(arg sensor_name)"/>
 
-    <param name="publish_tf"           value="true"/>
-    <param name="tf_publish_rate"      value="$(arg fps)"/>
+      <!-- Multisource Camera -->
+      <param name="channel_names" value="$(arg channel_names)"/>
 
-    <!-- use GenICam SFNC names as stream control parameters -->
-    <param name="PixelFormat"          value="$(arg pixel_format)"/>
-    <param name="Width"                value="$(arg width)"/>
-    <param name="Height"               value="$(arg height)"/>
-    <param name="AcquisitionFrameRate" type="double" value="$(arg fps)"/>
+      <param name="publish_tf"           value="true"/>
+      <param name="tf_publish_rate"      value="$(arg fps)"/>
 
-    <param name="Gamma"                value="0.41"/>
-    <param name="Gain"                 value="0.0"/>
-    <param name="AutoFunctionsROIPreset" value="AutoFunctionsROIPreset_Full"/>
-    <param name="ExposureAuto"         value="Continuous"/>
-    <param name="GainAuto"             value="Continuous"/>
-    <param name="BalanceWhiteAuto"     value="Continuous"/>
+      <!-- use GenICam SFNC names as stream control parameters -->
+      <param name="PixelFormat"          value="$(arg pixel_format)"/>
+      <param name="Width"                value="$(arg width)"/>
+      <param name="Height"               value="$(arg height)"/>
+      <param name="AcquisitionFrameRate" type="double" value="$(arg fps)"/>
 
-  </node>
+      <param name="Gamma"                value="0.41"/>
+      <param name="Gain"                 value="0.0"/>
+      <param name="AutoFunctionsROIPreset" value="AutoFunctionsROIPreset_Full"/>
+      <param name="ExposureAuto"         value="Continuous"/>
+      <param name="GainAuto"             value="Continuous"/>
+      <param name="BalanceWhiteAuto"     value="Continuous"/>
 
-  <!-- Debayer & Undistort both images -->
-  <node ns="$(eval arg('channel_names').split(',')[0])" pkg="nodelet" type="nodelet" name="debayer"
-        args="load image_proc/debayer $(arg manager)">
-    <param name="debayer" value="0"/>
-  </node>
+    </node>
 
-  <node ns="$(eval arg('channel_names').split(',')[0])" pkg="nodelet" type="nodelet" name="rectify_color"
-        args="load image_proc/rectify $(arg manager)">
-    <param name="interpolation" value="1"/>
-    <remap from="image_mono" to="image_color"/>
-    <remap from="image_rect" to="image_rect_color"/>
-  </node>
+    <!-- Debayer & Undistort both images -->
+    <node ns="$(eval arg('channel_names').split(',')[0])" pkg="nodelet" type="nodelet" name="debayer"
+          args="load image_proc/debayer $(arg manager)">
+      <param name="debayer" value="0"/>
+    </node>
 
-  <node ns="$(eval arg('channel_names').split(',')[1])" pkg="nodelet" type="nodelet" name="rectify_mono"
-        args="load image_proc/rectify $(arg manager)">
-    <param name="interpolation" value="1"/>
-    <remap from="image_mono" to="image_raw"/>
-  </node>
+    <node ns="$(eval arg('channel_names').split(',')[0])" pkg="nodelet" type="nodelet" name="rectify_color"
+          args="load image_proc/rectify $(arg manager)">
+      <param name="interpolation" value="1"/>
+      <remap from="image_mono" to="image_color"/>
+      <remap from="image_rect" to="image_rect_color"/>
+    </node>
+
+    <node ns="$(eval arg('channel_names').split(',')[1])" pkg="nodelet" type="nodelet" name="rectify_mono"
+          args="load image_proc/rectify $(arg manager)">
+      <param name="interpolation" value="1"/>
+      <remap from="image_mono" to="image_raw"/>
+    </node>
+
+  </group>
 
 </launch>
