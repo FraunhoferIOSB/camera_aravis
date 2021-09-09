@@ -467,7 +467,7 @@ CameraAravisNodelet::~CameraAravisNodelet()
     ROS_INFO("Missing           = %Lu", (unsigned long long ) n_missing);
     }
   }
-  
+
 
   if (p_device_)
   {
@@ -736,7 +736,6 @@ void CameraAravisNodelet::onInit()
   for(int i = 0; i < num_streams_; i++) {
     // Start the camerainfo manager.
     p_camera_info_managers_[i].reset(new camera_info_manager::CameraInfoManager(pnh, stream_names_[i], calib_urls[i]));
-    // publish an extended camera info message
     ROS_INFO("Reset %s Camera Info Manager", stream_names_[i].c_str());
     ROS_INFO("%s Calib URL: %s", stream_names_[i].c_str(), calib_urls[i].c_str());
   }
@@ -851,7 +850,6 @@ void CameraAravisNodelet::onInit()
       topic_name += "/" + stream_names_[i];
     }
 
-    ROS_INFO("Mapping to %s", (frame_id + "image_raw").c_str());
     cam_pubs_[i] = p_transport->advertiseCamera(
       ros::names::remap(topic_name + "/image_raw"),
       1, image_cb, image_cb, info_cb, info_cb);
@@ -1599,11 +1597,10 @@ void CameraAravisNodelet::discoverFeatures()
 }
 
 void CameraAravisNodelet::parseStringArgs(std::string in_arg_string, std::vector<std::string> &out_args) {
-  size_t array_start = in_arg_string.find('[');
-  size_t array_end = in_arg_string.find(']');
+  size_t array_start = 0;
+  size_t array_end = in_arg_string.length();
   if(array_start != std::string::npos && array_end != std::string::npos) {
         // parse the string into an array of parameters
-        array_start++;  // do not include '[' in string
         std::stringstream ss(in_arg_string.substr(array_start, array_end - array_start));
         while (ss.good()) {
           std::string temp;
