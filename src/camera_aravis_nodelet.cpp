@@ -507,6 +507,9 @@ void CameraAravisNodelet::onInit()
     pnh.getParam("guid", guid);
   }
 
+  // Get PTP timestamp parameter
+  pnh.param<bool>("use_ptp_timestamp", use_ptp_stamp_, false);
+
   // Open the camera, and set it up.
   while (!p_camera_)
   {
@@ -744,6 +747,10 @@ void CameraAravisNodelet::onInit()
 
   ROS_INFO("    ---------------------------");
 
+  // Reset PTP clock
+  if (use_ptp_stamp_)
+    resetPtpClock();
+
   // spwan camera stream in thread, so onInit() is not blocked
   spawning_ = true;
   spawn_stream_thread_ = std::thread(&CameraAravisNodelet::spawnStream, this);
@@ -801,6 +808,17 @@ void CameraAravisNodelet::spawnStream()
     arv_camera_start_acquisition(p_camera_);
 
   ROS_INFO("Done initializing camera_aravis.");
+}
+
+void CameraAravisNodelet::resetPtpClock()
+{
+  std::string ptp_status(arv_device_get_string_feature_value(p_device_, "GevIEEE1588Status"));
+  if (ptp_status != std::string("Slave"))
+  {      
+    ROS_INFO("camera_aravis: Reset ptp clock");
+    arv_device_set_boolean_feature_value(p_device_, "GevIEEE1588", false);
+    arv_device_set_boolean_feature_value(p_device_, "GevIEEE1588", true);
+  }
 }
 
 void CameraAravisNodelet::cameraAutoInfoCallback(const CameraAutoInfoConstPtr &msg_ptr)
@@ -1078,6 +1096,9 @@ void CameraAravisNodelet::rosReconfigureCallback(Config &config, uint32_t level)
   config.FocusPos = CLAMP(config.FocusPos, config_min_.FocusPos, config_max_.FocusPos);
   config.frame_id = tf::resolve(tf_prefix, config.frame_id);
 
+  if (use_ptp_stamp_)
+    resetPtpClock();
+
   // stop auto functions if slave
   if (config.AutoSlave)
   {
@@ -1336,7 +1357,11 @@ void CameraAravisNodelet::newBufferReadyCallback(ArvStream *p_stream, gpointer c
       sensor_msgs::ImagePtr msg_ptr = (*(p_can->p_buffer_pool_))[p_buffer];
       // fill the meta information of image message
       // get acquisition time
-      const guint64 t = arv_buffer_get_system_timestamp(p_buffer);
+      guint64 t;
+      if (p_can->use_ptp_stamp_)      
+        t = arv_buffer_get_timestamp(p_buffer);
+      else
+        t = arv_buffer_get_system_timestamp(p_buffer);
       msg_ptr->header.stamp.fromNSec(t);
       // get frame sequence number
       msg_ptr->header.seq = arv_buffer_get_frame_id(p_buffer);
@@ -1364,6 +1389,9 @@ void CameraAravisNodelet::newBufferReadyCallback(ArvStream *p_stream, gpointer c
 
       p_can->cam_pub_.publish(msg_ptr, p_can->camera_info_);
 
+      // check PTP status, camera cannot recover from "Faulty" by itself
+      if (p_can->use_ptp_stamp_)
+        p_can->resetPtpClock();
     }
     else
     {

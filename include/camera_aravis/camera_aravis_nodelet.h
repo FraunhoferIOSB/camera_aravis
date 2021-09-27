@@ -202,6 +202,9 @@ private:
   void spawnStream();
 
 protected:
+  // reset PTP clock
+  void resetPtpClock();
+
   // apply auto functions from a ros message
   void cameraAutoInfoCallback(const CameraAutoInfoConstPtr &msg_ptr);
 
@@ -259,7 +262,8 @@ protected:
 
   Config config_;
   Config config_min_;
-  Config config_max_;
+  Config config_max_;  
+  bool   use_ptp_stamp_;
 
   std::atomic<bool> spawning_;
   std::thread       spawn_stream_thread_;
