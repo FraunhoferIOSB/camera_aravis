@@ -436,6 +436,12 @@ CameraAravisNodelet::~CameraAravisNodelet()
     arv_stream_set_emit_signals(p_stream_, FALSE);
   }
 
+  spawning_ = false;
+  if (spawn_stream_thread_.joinable())
+  {
+    spawn_stream_thread_.join();
+  }
+
   software_trigger_active_ = false;
   if (software_trigger_thread_.joinable())
   {
@@ -738,7 +744,22 @@ void CameraAravisNodelet::onInit()
 
   ROS_INFO("    ---------------------------");
 
-  while (true)
+  // spwan camera stream in thread, so onInit() is not blocked
+  spawning_ = true;
+  spawn_stream_thread_ = std::thread(&CameraAravisNodelet::spawnStream, this);
+}
+
+void CameraAravisNodelet::spawnStream()
+{
+  ros::NodeHandle nh  = getNodeHandle();
+  ros::NodeHandle pnh = getPrivateNodeHandle();
+  std::string guid;
+  if (pnh.hasParam("guid"))
+  {
+    pnh.getParam("guid", guid);
+  }
+
+  while (spawning_)
   {
     p_stream_ = arv_device_create_stream(p_device_, NULL, NULL);
     if (p_stream_)

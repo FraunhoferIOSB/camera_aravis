@@ -199,6 +199,7 @@ public:
 
 private:
   virtual void onInit() override;
+  void spawnStream();
 
 protected:
   // apply auto functions from a ros message
@@ -259,6 +260,9 @@ protected:
   Config config_;
   Config config_min_;
   Config config_max_;
+
+  std::atomic<bool> spawning_;
+  std::thread       spawn_stream_thread_;
 
   std::thread software_trigger_thread_;
   std::atomic_bool software_trigger_active_;
