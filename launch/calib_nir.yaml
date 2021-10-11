@@ -1,0 +1,26 @@
+image_width: 2048
+image_height: 1536
+camera_name: aravis_cam/nir
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [ 2019.638934380927, 0.0, 1030.481091777836, 0.0, 2018.977973348683, 775.6041335083365, 0.0, 0.0, 1.0 ]
+distortion_model: plumb_bob
+distortion_coefficients:
+  rows: 1
+  cols: 5
+  data: [ -0.1765760829240792, 0.1291591250363215, 3.01682630878713e-05, 0.0001881335503605897, -0.0329682210824965 ]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [ 1.000000, 0.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000, 0.000000, 1.000000 ]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [ 2019.638934380927, 0.0, 1030.481091777836, 0.0, 0.0, 2018.977973348683, 775.6041335083365, 0.0, 0.0, 0.0, 1.0, 0.0 ]
+roi:
+  width: 2048
+  height: 1536
+  x_offset: 0
+  y_offset: 0
+  do_rectify: 0
