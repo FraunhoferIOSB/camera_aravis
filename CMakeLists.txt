@@ -19,7 +19,7 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(Aravis REQUIRED)
 find_package(GLIB2 REQUIRED)
 
-generate_dynamic_reconfigure_options(cfg/CameraAravisConfig.cfg)
+generate_dynamic_reconfigure_options(cfg/CameraAravis.cfg)
 
 add_message_files(
    FILES
