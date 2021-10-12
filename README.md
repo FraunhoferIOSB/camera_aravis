@@ -1,3 +1,7 @@
+# camera_aravis
+
+[![CI](https://github.com/FraunhoferIOSB/camera_aravis/actions/workflows/industrial_ci_action.yml/badge.svg?branch=ci)](https://github.com/FraunhoferIOSB/camera_aravis/actions/workflows/industrial_ci_action.yml/badge.svg?branch=master)
+
 THIS README IS CURRENTLY OUT OF DATE. IT WILL BE UPDATED SOON. PLEASE SEE COMMIT DESCRIPTIONS FOR LATEST CHANGES.
 
 camera_aravis - forked from a deleted github repo (https://github.com/CaeruleusAqua/camera_aravis), which was itself forked from ssafarik: https://github.com/ssafarik/camera_aravis.
