@@ -15,9 +15,9 @@
 
   <url type="website">https://github.com/fkie-forks/camera_aravis</url>
   <url type="website">https://github.com/AravisProject/aravis</url>
-  
+
   <buildtool_depend>catkin</buildtool_depend>
-  
+
   <depend>roscpp</depend>
   <depend>nodelet</depend>
   <depend>std_msgs</depend>
@@ -27,14 +27,14 @@
   <depend>dynamic_reconfigure</depend>
   <depend>tf</depend>
   <depend>tf2_ros</depend>
-  <!--depend>aravis</depend-->
-  
-  <!--build_depend>aravis-dev</build_depend-->
+  <depend>aravis</depend>
+
+  <build_depend>aravis-dev</build_depend>
   <build_depend>message_generation</build_depend>
   <exec_depend>message_runtime</exec_depend>
-  
+
   <export>
     <nodelet plugin="${prefix}/nodelet_plugins.xml" />
   </export>
-  
+
 </package>
