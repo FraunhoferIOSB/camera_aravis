@@ -1,23 +1,19 @@
 # camera_aravis
 
-[![CI](https://github.com/FraunhoferIOSB/camera_aravis/actions/workflows/industrial_ci_action.yml/badge.svg?branch=ci)](https://github.com/FraunhoferIOSB/camera_aravis/actions/workflows/industrial_ci_action.yml/badge.svg?branch=master)
+Actively maintained repository for the ROS1 camara_aravis driver. It is open source under the LGPL (like Aravis itself).
 
-THIS README IS CURRENTLY OUT OF DATE. IT WILL BE UPDATED SOON. PLEASE SEE COMMIT DESCRIPTIONS FOR LATEST CHANGES.
+The [Aravis](http://live.gnome.org/Aravis) library is a glib/gobject based library for video acquisition using Genicam cameras. It currently implements the gigabit ethernet and USB3 protocols used by industrial cameras.
 
-camera_aravis - forked from a deleted github repo (https://github.com/CaeruleusAqua/camera_aravis), which was itself forked from ssafarik: https://github.com/ssafarik/camera_aravis.
-
-This is a ROS node that works with aravis.
-* aravis version 0.3.7: ftp://ftp.acc.umu.se/pub/GNOME/sources/aravis/0.3
-  * use commit: 497e415c5b0b9c20ac4179f8acc8ae9547799523
-* aravis version 0.6 (unverified):
-  * use commit: da5c21caf3d233c1c1c9d24ead87aead509aa2b1
-
-This is a [ROS](http://ros.org) package for the [Aravis GigEVision
-library](http://live.gnome.org/Aravis). It is open source, under the
-LGPL (like Aravis itself).
-
+The camera_aravis driver has long history of multiple forks and now abandoned GitHub repositories. This repository is based on https://github.com/florisvb/camera_aravis.git, which in turn was forked from a deleted github repo (https://github.com/CaeruleusAqua/camera_aravis), which was itself forked from https://github.com/ssafarik/camera_aravis.
 
 ------------------------
+
+Tested with Aravis version 0.6.X. Since Ubuntu 20.04 the library can be installed from the official Ubuntu package repository. Install with:
+
+```
+sudo apt install libaravis-dev
+```
+
 The basic command to run camera_aravis:
 
 	$ rosrun camera_aravis camnode
@@ -26,9 +22,18 @@ To run it in a given namespace, which is the better way to do it:
 
 	$ ROS_NAMESPACE=cam1 rosrun camera_aravis camnode
 
+------------------------
+## Continuous Integration
+
+service    | Noetic  | Melodic | Master
+---------- | ------- | ------- | ------
+GitHub     | TODO    | TODO    | [![CI](https://github.com/FraunhoferIOSB/camera_aravis/actions/workflows/industrial_ci_action.yml/badge.svg?branch=ci)](https://github.com/FraunhoferIOSB/camera_aravis/actions/workflows/industrial_ci_action.yml/badge.svg?branch=master)
+build farm | TODO   | TODO     | TODO
 
 ------------------------
-This ROS node publishes messages image_raw and camera_info for a specified camera.  It supports 
+## Configuration
+
+This ROS node publishes messages image_raw and camera_info for a specified camera.  It supports
 a variety of camera features via the ROS reconfigure_gui, including the following:
 * ExposureAuto         (string: Off, Once, Continuous)
 * GainAuto             (string: Off, Once, Continuous)
@@ -47,16 +52,16 @@ Note that the above are also the ROS parameter names of their respective feature
 set initial values for the camera by setting ROS parameters in the camera's namespace.
 
 In addition to the above features, this driver now supports (almost) every feature of every camera,
-you just have to know how the feature is specified; each GenICam-based camera contains 
-an XML file onboard, and by viewing this file you can determine which ROS parameters to set 
-for camera_aravis to write to the camera.  You can use arv-tool-0.2 to see the feature list 
+you just have to know how the feature is specified; each GenICam-based camera contains
+an XML file onboard, and by viewing this file you can determine which ROS parameters to set
+for camera_aravis to write to the camera.  You can use arv-tool-0.2 to see the feature list
 and the XML file (e.g. "arv-tool-0.2 --name=Basler-21285878 features")
 
-Note that for this special feature access, the ROS parameter type must match the feature type. 
-For example, a Basler ac640 has a boolean feature called "GammaEnable", an integer feature 
-called "BlackLevelRaw", and a string enum feature called "PixelFormat" that takes values 
-(Mono8, Mono12, Mono12Packed, YUV422Packed, etc).  The ROS params that you set for these 
-must be, respectively, a bool, an integer and a string.  Also note that boolean features must 
+Note that for this special feature access, the ROS parameter type must match the feature type.
+For example, a Basler ac640 has a boolean feature called "GammaEnable", an integer feature
+called "BlackLevelRaw", and a string enum feature called "PixelFormat" that takes values
+(Mono8, Mono12, Mono12Packed, YUV422Packed, etc).  The ROS params that you set for these
+must be, respectively, a bool, an integer and a string.  Also note that boolean features must
 be specified as ROS params false/true, not as integer 0/1.
 
 	$ rosparam set cam1/GammaEnable false
@@ -66,7 +71,7 @@ be specified as ROS params false/true, not as integer 0/1.
 
 
 ------------------------
-camera_aravis supports multiple cameras, each of which may be specified on the 
+camera_aravis supports multiple cameras, each of which may be specified on the
 command-line, or via parameter.  Runs one camera per node.
 
 To specify which camera to open, via the command-line:
@@ -81,7 +86,7 @@ To specify which camera to open, via a parameter:
 
 
 ------------------------
-It supports the dynamic_reconfigure protocol, and once the node is running, you may adjust 
+It supports the dynamic_reconfigure protocol, and once the node is running, you may adjust
 its parameters by running the following and then manipulating the GUI:
 
 	$ rosrun dynamic_reconfigure reconfigure_gui
@@ -89,15 +94,15 @@ its parameters by running the following and then manipulating the GUI:
 
 ------------------------
 There is an additional nice feature related to timestamps that unifies ROS time with camera time.
-We want a stable timestamp on the images that the camera delivers, giving a nice smooth time 
-delta from frame to frame.  If we were to use the ROS clock on the PC, by the time we get the 
-image packets from the camera a variable amount of time has passed on the PC's clock due to 
-variable network and system delays.  The camera's onboard clock is stable but it doesn't match 
-with the ROS clock on the PC, and furthermore since it comes from a different piece of hardware, 
+We want a stable timestamp on the images that the camera delivers, giving a nice smooth time
+delta from frame to frame.  If we were to use the ROS clock on the PC, by the time we get the
+image packets from the camera a variable amount of time has passed on the PC's clock due to
+variable network and system delays.  The camera's onboard clock is stable but it doesn't match
+with the ROS clock on the PC, and furthermore since it comes from a different piece of hardware,
 the two clock's rates are slightly different.
 
 The solution is to start with a base of ROS time, and to accumulate the dt's from the camera clock.
-To accomodate the difference in clock rates, a PID controller gently pulls the result toward 
+To accomodate the difference in clock rates, a PID controller gently pulls the result toward
 ROS time.
 
 
