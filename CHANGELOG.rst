@@ -2,8 +2,8 @@
 Changelog for package camera_aravis
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+4.0.0 (2021-10-27)
+------------------
 * Major refactoring
 * Add support for ROS Noetic and aravis-0.6
 * Fix several bugs (see git history)
