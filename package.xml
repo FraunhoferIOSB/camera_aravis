@@ -31,6 +31,7 @@
   <depend>aravis</depend>
 
   <build_depend>aravis-dev</build_depend>
+  <build_depend>libglib-dev</build_depend> <!-- Bugfix: Missing dependency in Debian Buster -->
   <build_depend>message_generation</build_depend>
   <exec_depend>message_runtime</exec_depend>
 
