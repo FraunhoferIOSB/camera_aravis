@@ -816,7 +816,7 @@ void CameraAravisNodelet::onInit()
   if (use_ptp_stamp_)
     resetPtpClock();
 
-  // spwan camera stream in thread, so onInit() is not blocked
+  // spawn camera stream in thread, so onInit() is not blocked
   spawning_ = true;
   spawn_stream_thread_ = std::thread(&CameraAravisNodelet::spawnStream, this);
 }
@@ -831,7 +831,7 @@ void CameraAravisNodelet::spawnStream()
     pnh.getParam("guid", guid);
   }
 
-  while (spawning_)
+  if (spawning_)
   {
     for(int i = 0; i < num_streams_; i++) {
       while (true) {
