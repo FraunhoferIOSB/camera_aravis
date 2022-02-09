@@ -26,6 +26,18 @@ add_message_files(
    CameraAutoInfo.msg
 )
 
+add_service_files(
+  FILES
+  get_boolean_feature_value.srv
+  get_float_feature_value.srv
+  get_integer_feature_value.srv
+  get_string_feature_value.srv
+  set_boolean_feature_value.srv
+  set_float_feature_value.srv
+  set_integer_feature_value.srv
+  set_string_feature_value.srv
+)
+
 generate_messages(
    DEPENDENCIES
    std_msgs
