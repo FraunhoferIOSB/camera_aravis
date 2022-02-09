@@ -662,11 +662,13 @@ void CameraAravisNodelet::onInit()
   // get pixel format name and translate into corresponding ROS name
   for(int i = 0; i < num_streams_; i++) {
     arv_camera_gv_select_stream_channel(p_camera_,i);
+    std::string source_selector = "Source" + std::to_string(i);
+    arv_device_set_string_feature_value(p_device_, "SourceSelector", source_selector.c_str());
     arv_device_set_string_feature_value(p_device_, "PixelFormat", pixel_formats[i].c_str());
     sensors_[i]->pixel_format = std::string(arv_device_get_string_feature_value(p_device_, "PixelFormat"));
     const auto sensor_iter = CONVERSIONS_DICTIONARY.find(sensors_[i]->pixel_format);
     if (sensor_iter!=CONVERSIONS_DICTIONARY.end()) {
-      convert_format = sensor_iter->second;
+      convert_formats.push_back(sensor_iter->second);
     }
     else {
       ROS_WARN_STREAM("There is no known conversion from " << sensors_[i]->pixel_format << " to a usual ROS image encoding. Likely you need to implement one.");
@@ -1483,9 +1485,9 @@ void CameraAravisNodelet::newBufferReady(ArvStream *p_stream, CameraAravisNodele
       msg_ptr->step = (msg_ptr->width * p_can->sensors_[stream_id]->n_bits_pixel)/8;
 
       // do the magic of conversion into a ROS format
-      if (p_can->convert_format) {
+      if (p_can->convert_formats[stream_id]) {
         sensor_msgs::ImagePtr cvt_msg_ptr = p_can->p_buffer_pools_[stream_id]->getRecyclableImg();
-        p_can->convert_format(msg_ptr, cvt_msg_ptr);
+        p_can->convert_formats[stream_id](msg_ptr, cvt_msg_ptr);
         msg_ptr = cvt_msg_ptr;
       }
 
