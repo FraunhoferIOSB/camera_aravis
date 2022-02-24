@@ -315,7 +315,7 @@ protected:
   std::vector<std::string> stream_names_;
   std::vector<CameraBufferPool::Ptr> p_buffer_pools_;
   int32_t acquire_ = 0;
-  ConversionFunction convert_format;
+  std::vector<ConversionFunction> convert_formats;
 };
 
 } // end namespace camera_aravis
