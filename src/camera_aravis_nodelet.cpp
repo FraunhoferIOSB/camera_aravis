@@ -903,7 +903,97 @@ void CameraAravisNodelet::spawnStream()
     arv_camera_start_acquisition(p_camera_);
   }
 
+  this->get_integer_service_ = pnh.advertiseService("get_integer_feature_value", &CameraAravisNodelet::getIntegerFeatureCallback, this);
+  this->get_float_service_ = pnh.advertiseService("get_float_feature_value", &CameraAravisNodelet::getFloatFeatureCallback, this);
+  this->get_string_service_ = pnh.advertiseService("get_string_feature_value", &CameraAravisNodelet::getStringFeatureCallback, this);
+  this->get_boolean_service_ = pnh.advertiseService("get_boolean_feature_value", &CameraAravisNodelet::getBooleanFeatureCallback, this);
+
+  this->set_integer_service_ = pnh.advertiseService("set_integer_feature_value", &CameraAravisNodelet::setIntegerFeatureCallback, this);
+  this->set_float_service_ = pnh.advertiseService("set_float_feature_value", &CameraAravisNodelet::setFloatFeatureCallback, this);
+  this->set_string_service_ = pnh.advertiseService("set_string_feature_value", &CameraAravisNodelet::setStringFeatureCallback, this);
+  this->set_boolean_service_ = pnh.advertiseService("set_boolean_feature_value", &CameraAravisNodelet::setBooleanFeatureCallback, this);
+
   ROS_INFO("Done initializing camera_aravis.");
+}
+
+bool CameraAravisNodelet::getIntegerFeatureCallback(camera_aravis::get_integer_feature_value::Request& request, camera_aravis::get_integer_feature_value::Response& response)
+{
+  const char* feature_name = request.feature.c_str();
+  response.response = arv_device_get_integer_feature_value(this->p_device_, feature_name);
+  return true;
+}
+
+bool CameraAravisNodelet::setIntegerFeatureCallback(camera_aravis::set_integer_feature_value::Request& request, camera_aravis::set_integer_feature_value::Response& response)
+{
+  const char* feature_name = request.feature.c_str();
+  guint64 value = request.value;
+  arv_device_set_integer_feature_value(this->p_device_, feature_name, value);
+  if(arv_device_get_status(this->p_device_) == ARV_DEVICE_STATUS_SUCCESS) {
+    response.ok = true;
+  } else {
+    response.ok = false;
+  }
+  return true;
+}
+
+bool CameraAravisNodelet::getFloatFeatureCallback(camera_aravis::get_float_feature_value::Request& request, camera_aravis::get_float_feature_value::Response& response)
+{
+  const char* feature_name = request.feature.c_str();
+  response.response = arv_device_get_float_feature_value(this->p_device_, feature_name);
+  return true;
+}
+
+bool CameraAravisNodelet::setFloatFeatureCallback(camera_aravis::set_float_feature_value::Request& request, camera_aravis::set_float_feature_value::Response& response)
+{
+  const char* feature_name = request.feature.c_str();
+  const double value = request.value;
+  arv_device_set_float_feature_value(this->p_device_, feature_name, value);
+  if(arv_device_get_status(this->p_device_) == ARV_DEVICE_STATUS_SUCCESS) {
+    response.ok = true;
+  } else {
+    response.ok = false;
+  }
+  return true;
+}
+
+bool CameraAravisNodelet::getStringFeatureCallback(camera_aravis::get_string_feature_value::Request& request, camera_aravis::get_string_feature_value::Response& response)
+{
+  const char* feature_name = request.feature.c_str();
+  response.response = arv_device_get_string_feature_value(this->p_device_, feature_name);
+  return true;
+}
+
+bool CameraAravisNodelet::setStringFeatureCallback(camera_aravis::set_string_feature_value::Request& request, camera_aravis::set_string_feature_value::Response& response)
+{
+  const char* feature_name = request.feature.c_str();
+  const char* value = request.value.c_str();
+  arv_device_set_string_feature_value(this->p_device_, feature_name, value);
+  if(arv_device_get_status(this->p_device_) == ARV_DEVICE_STATUS_SUCCESS) {
+    response.ok = true;
+  } else {
+    response.ok = false;
+  }
+  return true;
+}
+
+bool CameraAravisNodelet::getBooleanFeatureCallback(camera_aravis::get_boolean_feature_value::Request& request, camera_aravis::get_boolean_feature_value::Response& response)
+{
+  const char* feature_name = request.feature.c_str();
+  response.response = arv_device_get_boolean_feature_value(this->p_device_, feature_name);
+  return true;
+}
+
+bool CameraAravisNodelet::setBooleanFeatureCallback(camera_aravis::set_boolean_feature_value::Request& request, camera_aravis::set_boolean_feature_value::Response& response)
+{
+  const char* feature_name = request.feature.c_str();
+  const bool value = request.value;
+  arv_device_set_boolean_feature_value(this->p_device_, feature_name, value);
+  if(arv_device_get_status(this->p_device_) == ARV_DEVICE_STATUS_SUCCESS) {
+    response.ok = true;
+  } else {
+    response.ok = false;
+  }
+  return true;
 }
 
 void CameraAravisNodelet::resetPtpClock()
