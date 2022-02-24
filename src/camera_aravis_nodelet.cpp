@@ -816,7 +816,7 @@ void CameraAravisNodelet::onInit()
   if (use_ptp_stamp_)
     resetPtpClock();
 
-  // spwan camera stream in thread, so onInit() is not blocked
+  // spawn camera stream in thread, so onInit() is not blocked
   spawning_ = true;
   spawn_stream_thread_ = std::thread(&CameraAravisNodelet::spawnStream, this);
 }
@@ -831,33 +831,30 @@ void CameraAravisNodelet::spawnStream()
     pnh.getParam("guid", guid);
   }
 
-  while (spawning_)
-  {
-    for(int i = 0; i < num_streams_; i++) {
-      while (true) {
+  for(int i = 0; i < num_streams_; i++) {
+    while (spawning_) {
+      arv_camera_gv_select_stream_channel(p_camera_, i);
+      p_streams_[i] = arv_camera_create_stream(p_camera_, NULL, NULL);
+
+      if (p_streams_[i])
+      {
+        // Load up some buffers.
         arv_camera_gv_select_stream_channel(p_camera_, i);
-        p_streams_[i] = arv_camera_create_stream(p_camera_, NULL, NULL);
+        const gint n_bytes_payload_stream_ = arv_camera_get_payload(p_camera_);
 
-        if (p_streams_[i])
+        p_buffer_pools_[i].reset(new CameraBufferPool(p_streams_[i], n_bytes_payload_stream_, 10));
+
+        if (arv_camera_is_gv_device(p_camera_))
         {
-          // Load up some buffers.
-          arv_camera_gv_select_stream_channel(p_camera_, i);
-          const gint n_bytes_payload_stream_ = arv_camera_get_payload(p_camera_);
-
-          p_buffer_pools_[i].reset(new CameraBufferPool(p_streams_[i], n_bytes_payload_stream_, 10));
-
-          if (arv_camera_is_gv_device(p_camera_))
-          {
-            tuneGvStream(reinterpret_cast<ArvGvStream*>(p_streams_[i]));
-          }
-          break;
+          tuneGvStream(reinterpret_cast<ArvGvStream*>(p_streams_[i]));
         }
-        else
-        {
-          ROS_WARN("Stream %i: Could not create image stream for %s.  Retrying...", i, guid.c_str());
-          ros::Duration(1.0).sleep();
-          ros::spinOnce();
-        }
+        break;
+      }
+      else
+      {
+        ROS_WARN("Stream %i: Could not create image stream for %s.  Retrying...", i, guid.c_str());
+        ros::Duration(1.0).sleep();
+        ros::spinOnce();
       }
     }
   }
