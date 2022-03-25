@@ -2,8 +2,8 @@
 Changelog for package camera_aravis
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+4.0.1 (2022-03-25)
+------------------
 * Add ROS getter/setter services for camera features
 * Add support for multistream encoding conversion
 * Fix: Pass on the correct encoding for the additional streams of multisource cameras
