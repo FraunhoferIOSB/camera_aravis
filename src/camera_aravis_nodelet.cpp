@@ -662,11 +662,13 @@ void CameraAravisNodelet::onInit()
   // get pixel format name and translate into corresponding ROS name
   for(int i = 0; i < num_streams_; i++) {
     arv_camera_gv_select_stream_channel(p_camera_,i);
+    std::string source_selector = "Source" + std::to_string(i);
+    arv_device_set_string_feature_value(p_device_, "SourceSelector", source_selector.c_str());
     arv_device_set_string_feature_value(p_device_, "PixelFormat", pixel_formats[i].c_str());
     sensors_[i]->pixel_format = std::string(arv_device_get_string_feature_value(p_device_, "PixelFormat"));
     const auto sensor_iter = CONVERSIONS_DICTIONARY.find(sensors_[i]->pixel_format);
     if (sensor_iter!=CONVERSIONS_DICTIONARY.end()) {
-      convert_format = sensor_iter->second;
+      convert_formats.push_back(sensor_iter->second);
     }
     else {
       ROS_WARN_STREAM("There is no known conversion from " << sensors_[i]->pixel_format << " to a usual ROS image encoding. Likely you need to implement one.");
@@ -816,7 +818,7 @@ void CameraAravisNodelet::onInit()
   if (use_ptp_stamp_)
     resetPtpClock();
 
-  // spwan camera stream in thread, so onInit() is not blocked
+  // spawn camera stream in thread, so onInit() is not blocked
   spawning_ = true;
   spawn_stream_thread_ = std::thread(&CameraAravisNodelet::spawnStream, this);
 }
@@ -831,33 +833,30 @@ void CameraAravisNodelet::spawnStream()
     pnh.getParam("guid", guid);
   }
 
-  while (spawning_)
-  {
-    for(int i = 0; i < num_streams_; i++) {
-      while (true) {
+  for(int i = 0; i < num_streams_; i++) {
+    while (spawning_) {
+      arv_camera_gv_select_stream_channel(p_camera_, i);
+      p_streams_[i] = arv_camera_create_stream(p_camera_, NULL, NULL);
+
+      if (p_streams_[i])
+      {
+        // Load up some buffers.
         arv_camera_gv_select_stream_channel(p_camera_, i);
-        p_streams_[i] = arv_camera_create_stream(p_camera_, NULL, NULL);
+        const gint n_bytes_payload_stream_ = arv_camera_get_payload(p_camera_);
 
-        if (p_streams_[i])
+        p_buffer_pools_[i].reset(new CameraBufferPool(p_streams_[i], n_bytes_payload_stream_, 10));
+
+        if (arv_camera_is_gv_device(p_camera_))
         {
-          // Load up some buffers.
-          arv_camera_gv_select_stream_channel(p_camera_, i);
-          const gint n_bytes_payload_stream_ = arv_camera_get_payload(p_camera_);
-
-          p_buffer_pools_[i].reset(new CameraBufferPool(p_streams_[i], n_bytes_payload_stream_, 10));
-
-          if (arv_camera_is_gv_device(p_camera_))
-          {
-            tuneGvStream(reinterpret_cast<ArvGvStream*>(p_streams_[i]));
-          }
-          break;
+          tuneGvStream(reinterpret_cast<ArvGvStream*>(p_streams_[i]));
         }
-        else
-        {
-          ROS_WARN("Stream %i: Could not create image stream for %s.  Retrying...", i, guid.c_str());
-          ros::Duration(1.0).sleep();
-          ros::spinOnce();
-        }
+        break;
+      }
+      else
+      {
+        ROS_WARN("Stream %i: Could not create image stream for %s.  Retrying...", i, guid.c_str());
+        ros::Duration(1.0).sleep();
+        ros::spinOnce();
       }
     }
   }
@@ -904,7 +903,97 @@ void CameraAravisNodelet::spawnStream()
     arv_camera_start_acquisition(p_camera_);
   }
 
+  this->get_integer_service_ = pnh.advertiseService("get_integer_feature_value", &CameraAravisNodelet::getIntegerFeatureCallback, this);
+  this->get_float_service_ = pnh.advertiseService("get_float_feature_value", &CameraAravisNodelet::getFloatFeatureCallback, this);
+  this->get_string_service_ = pnh.advertiseService("get_string_feature_value", &CameraAravisNodelet::getStringFeatureCallback, this);
+  this->get_boolean_service_ = pnh.advertiseService("get_boolean_feature_value", &CameraAravisNodelet::getBooleanFeatureCallback, this);
+
+  this->set_integer_service_ = pnh.advertiseService("set_integer_feature_value", &CameraAravisNodelet::setIntegerFeatureCallback, this);
+  this->set_float_service_ = pnh.advertiseService("set_float_feature_value", &CameraAravisNodelet::setFloatFeatureCallback, this);
+  this->set_string_service_ = pnh.advertiseService("set_string_feature_value", &CameraAravisNodelet::setStringFeatureCallback, this);
+  this->set_boolean_service_ = pnh.advertiseService("set_boolean_feature_value", &CameraAravisNodelet::setBooleanFeatureCallback, this);
+
   ROS_INFO("Done initializing camera_aravis.");
+}
+
+bool CameraAravisNodelet::getIntegerFeatureCallback(camera_aravis::get_integer_feature_value::Request& request, camera_aravis::get_integer_feature_value::Response& response)
+{
+  const char* feature_name = request.feature.c_str();
+  response.response = arv_device_get_integer_feature_value(this->p_device_, feature_name);
+  return true;
+}
+
+bool CameraAravisNodelet::setIntegerFeatureCallback(camera_aravis::set_integer_feature_value::Request& request, camera_aravis::set_integer_feature_value::Response& response)
+{
+  const char* feature_name = request.feature.c_str();
+  guint64 value = request.value;
+  arv_device_set_integer_feature_value(this->p_device_, feature_name, value);
+  if(arv_device_get_status(this->p_device_) == ARV_DEVICE_STATUS_SUCCESS) {
+    response.ok = true;
+  } else {
+    response.ok = false;
+  }
+  return true;
+}
+
+bool CameraAravisNodelet::getFloatFeatureCallback(camera_aravis::get_float_feature_value::Request& request, camera_aravis::get_float_feature_value::Response& response)
+{
+  const char* feature_name = request.feature.c_str();
+  response.response = arv_device_get_float_feature_value(this->p_device_, feature_name);
+  return true;
+}
+
+bool CameraAravisNodelet::setFloatFeatureCallback(camera_aravis::set_float_feature_value::Request& request, camera_aravis::set_float_feature_value::Response& response)
+{
+  const char* feature_name = request.feature.c_str();
+  const double value = request.value;
+  arv_device_set_float_feature_value(this->p_device_, feature_name, value);
+  if(arv_device_get_status(this->p_device_) == ARV_DEVICE_STATUS_SUCCESS) {
+    response.ok = true;
+  } else {
+    response.ok = false;
+  }
+  return true;
+}
+
+bool CameraAravisNodelet::getStringFeatureCallback(camera_aravis::get_string_feature_value::Request& request, camera_aravis::get_string_feature_value::Response& response)
+{
+  const char* feature_name = request.feature.c_str();
+  response.response = arv_device_get_string_feature_value(this->p_device_, feature_name);
+  return true;
+}
+
+bool CameraAravisNodelet::setStringFeatureCallback(camera_aravis::set_string_feature_value::Request& request, camera_aravis::set_string_feature_value::Response& response)
+{
+  const char* feature_name = request.feature.c_str();
+  const char* value = request.value.c_str();
+  arv_device_set_string_feature_value(this->p_device_, feature_name, value);
+  if(arv_device_get_status(this->p_device_) == ARV_DEVICE_STATUS_SUCCESS) {
+    response.ok = true;
+  } else {
+    response.ok = false;
+  }
+  return true;
+}
+
+bool CameraAravisNodelet::getBooleanFeatureCallback(camera_aravis::get_boolean_feature_value::Request& request, camera_aravis::get_boolean_feature_value::Response& response)
+{
+  const char* feature_name = request.feature.c_str();
+  response.response = arv_device_get_boolean_feature_value(this->p_device_, feature_name);
+  return true;
+}
+
+bool CameraAravisNodelet::setBooleanFeatureCallback(camera_aravis::set_boolean_feature_value::Request& request, camera_aravis::set_boolean_feature_value::Response& response)
+{
+  const char* feature_name = request.feature.c_str();
+  const bool value = request.value;
+  arv_device_set_boolean_feature_value(this->p_device_, feature_name, value);
+  if(arv_device_get_status(this->p_device_) == ARV_DEVICE_STATUS_SUCCESS) {
+    response.ok = true;
+  } else {
+    response.ok = false;
+  }
+  return true;
 }
 
 void CameraAravisNodelet::resetPtpClock()
@@ -1486,9 +1575,9 @@ void CameraAravisNodelet::newBufferReady(ArvStream *p_stream, CameraAravisNodele
       msg_ptr->step = (msg_ptr->width * p_can->sensors_[stream_id]->n_bits_pixel)/8;
 
       // do the magic of conversion into a ROS format
-      if (p_can->convert_format) {
+      if (p_can->convert_formats[stream_id]) {
         sensor_msgs::ImagePtr cvt_msg_ptr = p_can->p_buffer_pools_[stream_id]->getRecyclableImg();
-        p_can->convert_format(msg_ptr, cvt_msg_ptr);
+        p_can->convert_formats[stream_id](msg_ptr, cvt_msg_ptr);
         msg_ptr = cvt_msg_ptr;
       }
 
