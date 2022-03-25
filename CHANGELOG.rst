@@ -2,6 +2,15 @@
 Changelog for package camera_aravis
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Add ROS getter/setter services for camera features
+* Add support for multistream encoding conversion
+* Fix: Pass on the correct encoding for the additional streams of multisource cameras
+* Fix: Continuously check the spawning\_ flag
+* Fix: Check spawning\_ flag only once during spawnStream
+* Contributors: Peter Mortimer, Thomas Emter, Dominik Kleiser
+
 4.0.0 (2021-10-27)
 ------------------
 * Major refactoring
