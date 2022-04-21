@@ -1808,7 +1808,6 @@ void CameraAravisNodelet::discoverFeatures()
 
   std::list<ArvDomNode*> todo;
   todo.push_front((ArvDomNode*)arv_gc_get_node(gc, "Root"));
-  GError *error = NULL;
 
   while (!todo.empty())
   {
@@ -1837,8 +1836,8 @@ void CameraAravisNodelet::discoverFeatures()
       //if (!(ARV_IS_GC_CATEGORY(node) || ARV_IS_GC_ENUM_ENTRY(node) /*|| ARV_IS_GC_PORT(node)*/)) {
       ArvGcFeatureNode *fnode = ARV_GC_FEATURE_NODE(node);
       const std::string fname(arv_gc_feature_node_get_name(fnode));
-      const bool usable = arv_gc_feature_node_is_available(fnode, &error)
-          && arv_gc_feature_node_is_implemented(fnode, &error);
+      const bool usable = arv_gc_feature_node_is_available(fnode, NULL)
+          && arv_gc_feature_node_is_implemented(fnode, NULL);
       ROS_INFO_STREAM("Feature " << fname << " is " << usable);
       implemented_features_.emplace(fname, usable);
       //}
