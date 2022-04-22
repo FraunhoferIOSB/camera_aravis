@@ -1623,8 +1623,18 @@ void CameraAravisNodelet::newBufferReady(ArvStream *p_stream, CameraAravisNodele
       }
       (*p_can->camera_infos_[stream_id]) = p_can->p_camera_info_managers_[stream_id]->getCameraInfo();
       p_can->camera_infos_[stream_id]->header = msg_ptr->header;
-      p_can->camera_infos_[stream_id]->width = p_can->roi_.width;
-      p_can->camera_infos_[stream_id]->height = p_can->roi_.height;
+      if (p_can->camera_infos_[stream_id]->width == 0 || p_can->camera_infos_[stream_id]->height == 0) {
+        ROS_WARN_STREAM_ONCE(
+            "The fields image_width and image_height seem not to be set in "
+            "the YAML specified by 'camera_info_url' parameter. Please set "
+            "them there, because actual image size and specified image size "
+            "can be different due to the region of interest (ROI) feature. In "
+            "the YAML the image size should be the one on which the camera was "
+            "calibrated. See CameraInfo.msg specification!");
+        p_can->camera_infos_[stream_id]->width = p_can->roi_.width;
+        p_can->camera_infos_[stream_id]->height = p_can->roi_.height;
+      }
+      
 
       p_can->cam_pubs_[stream_id].publish(msg_ptr, p_can->camera_infos_[stream_id]);
 
