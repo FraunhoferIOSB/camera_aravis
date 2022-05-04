@@ -2,8 +2,8 @@
 Changelog for package camera_aravis
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+4.0.2 (2022-05-04)
+------------------
 * Add optional ExtendedCameraInfo message to publish additional camera acquisition parameters
 * Fix: Set reasonable height and width when not given in the CameraInfo
 * Contributors: Peter Mortimer
