@@ -584,8 +584,10 @@ void CameraAravisNodelet::onInit()
     p_streams_.push_back(NULL);
     p_buffer_pools_.push_back(CameraBufferPool::Ptr());
     p_camera_info_managers_.push_back(NULL);
+    p_camera_info_node_handles_.push_back(NULL);
     camera_infos_.push_back(sensor_msgs::CameraInfoPtr());
     cam_pubs_.push_back(image_transport::CameraPublisher());
+    extended_camera_info_pubs_.push_back(ros::Publisher());
   }
 
   // Get parameter bounds.
@@ -690,6 +692,9 @@ void CameraAravisNodelet::onInit()
   setAutoMaster(config_.AutoMaster);
   setAutoSlave(config_.AutoSlave);
 
+  // publish an extended camera info message
+  pnh.param<bool>("ExtendedCameraInfo", extended_camera_info_, false);
+
   // should we publish tf transforms to camera optical frame?
   bool pub_tf_optical;
   pnh.param<bool>("publish_tf", pub_tf_optical, false);
@@ -746,9 +751,24 @@ void CameraAravisNodelet::onInit()
 
   for(int i = 0; i < num_streams_; i++) {
     // Start the camerainfo manager.
-    p_camera_info_managers_[i].reset(new camera_info_manager::CameraInfoManager(pnh, stream_names_[i], calib_urls[i]));
+    std::string camera_info_frame_id = config_.frame_id;
+    if(!stream_names_[i].empty())
+      camera_info_frame_id = config_.frame_id + '/' + stream_names_[i];
+
+    // Use separate node handles for CameraInfoManagers when using a Multisource Camera
+    if(!stream_names_[i].empty()) {
+      p_camera_info_node_handles_[i].reset(new ros::NodeHandle(pnh, stream_names_[i]));
+      p_camera_info_managers_[i].reset(new camera_info_manager::CameraInfoManager(*p_camera_info_node_handles_[i], camera_info_frame_id, calib_urls[i]));
+    } else {
+      p_camera_info_managers_[i].reset(new camera_info_manager::CameraInfoManager(pnh, camera_info_frame_id, calib_urls[i]));
+    }
+
+    
     ROS_INFO("Reset %s Camera Info Manager", stream_names_[i].c_str());
     ROS_INFO("%s Calib URL: %s", stream_names_[i].c_str(), calib_urls[i].c_str());
+
+    // publish an ExtendedCameraInfo message
+    setExtendedCameraInfo(stream_names_[i], i);
   }
 
   // update the reconfigure config
@@ -1237,6 +1257,22 @@ void CameraAravisNodelet::setAutoSlave(bool value)
   }
 }
 
+void CameraAravisNodelet::setExtendedCameraInfo(std::string channel_name, size_t stream_id)
+{
+  if (extended_camera_info_)
+  {
+    if (channel_name.empty()) {
+      extended_camera_info_pubs_[stream_id]  = getNodeHandle().advertise<ExtendedCameraInfo>(ros::names::remap("extended_camera_info"), 1, true);
+    } else {
+      extended_camera_info_pubs_[stream_id]  = getNodeHandle().advertise<ExtendedCameraInfo>(ros::names::remap(channel_name + "/extended_camera_info"), 1, true);
+    }
+  }
+  else
+  {
+    extended_camera_info_pubs_[stream_id].shutdown();
+  }
+}
+
 // Extra stream options for GigEVision streams.
 void CameraAravisNodelet::tuneGvStream(ArvGvStream *p_stream)
 {
@@ -1587,10 +1623,30 @@ void CameraAravisNodelet::newBufferReady(ArvStream *p_stream, CameraAravisNodele
       }
       (*p_can->camera_infos_[stream_id]) = p_can->p_camera_info_managers_[stream_id]->getCameraInfo();
       p_can->camera_infos_[stream_id]->header = msg_ptr->header;
-      p_can->camera_infos_[stream_id]->width = p_can->roi_.width;
-      p_can->camera_infos_[stream_id]->height = p_can->roi_.height;
+      if (p_can->camera_infos_[stream_id]->width == 0 || p_can->camera_infos_[stream_id]->height == 0) {
+        ROS_WARN_STREAM_ONCE(
+            "The fields image_width and image_height seem not to be set in "
+            "the YAML specified by 'camera_info_url' parameter. Please set "
+            "them there, because actual image size and specified image size "
+            "can be different due to the region of interest (ROI) feature. In "
+            "the YAML the image size should be the one on which the camera was "
+            "calibrated. See CameraInfo.msg specification!");
+        p_can->camera_infos_[stream_id]->width = p_can->roi_.width;
+        p_can->camera_infos_[stream_id]->height = p_can->roi_.height;
+      }
+      
 
       p_can->cam_pubs_[stream_id].publish(msg_ptr, p_can->camera_infos_[stream_id]);
+
+      if (p_can->extended_camera_info_) {
+        ExtendedCameraInfo extended_camera_info_msg;
+        p_can->extended_camera_info_mutex_.lock();
+        arv_camera_gv_select_stream_channel(p_can->p_camera_, stream_id);
+        extended_camera_info_msg.camera_info = *(p_can->camera_infos_[stream_id]);
+        p_can->fillExtendedCameraInfoMessage(extended_camera_info_msg);
+        p_can->extended_camera_info_mutex_.unlock();
+        p_can->extended_camera_info_pubs_[stream_id].publish(extended_camera_info_msg);
+      }
 
       // check PTP status, camera cannot recover from "Faulty" by itself
       if (p_can->use_ptp_stamp_)
@@ -1598,8 +1654,9 @@ void CameraAravisNodelet::newBufferReady(ArvStream *p_stream, CameraAravisNodele
     }
     else
     {
-      ROS_WARN("(%s) Frame error: %s", frame_id.c_str(), szBufferStatusFromInt[arv_buffer_get_status(p_buffer)]);
-
+      if (arv_buffer_get_status(p_buffer) != ARV_BUFFER_STATUS_SUCCESS) {
+        ROS_WARN("(%s) Frame error: %s", frame_id.c_str(), szBufferStatusFromInt[arv_buffer_get_status(p_buffer)]);
+      }
       arv_stream_push_buffer(p_stream, p_buffer);
     }
   }
@@ -1610,6 +1667,83 @@ void CameraAravisNodelet::newBufferReady(ArvStream *p_stream, CameraAravisNodele
     p_can->syncAutoParameters();
     p_can->auto_pub_.publish(p_can->auto_params_);
   }
+}
+
+void CameraAravisNodelet::fillExtendedCameraInfoMessage(ExtendedCameraInfo &msg) 
+{
+  const char *vendor_name = arv_camera_get_vendor_name(p_camera_);
+
+  if (strcmp("Basler", vendor_name) == 0) {
+    msg.exposure_time = arv_device_get_float_feature_value(p_device_, "ExposureTimeAbs");
+  } 
+  else if (implemented_features_["ExposureTime"])
+  {
+    msg.exposure_time = arv_device_get_float_feature_value(p_device_, "ExposureTime");
+  } 
+
+  if (strcmp("Basler", vendor_name) == 0) {
+    msg.gain = static_cast<float>(arv_device_get_integer_feature_value(p_device_, "GainRaw"));
+  }
+  else if (implemented_features_["Gain"])
+  {
+    msg.gain = arv_device_get_float_feature_value(p_device_, "Gain");
+  }
+  if (strcmp("Basler", vendor_name) == 0) {
+    arv_device_set_string_feature_value(p_device_, "BlackLevelSelector", "All");
+    msg.black_level = static_cast<float>(arv_device_get_integer_feature_value(p_device_, "BlackLevelRaw"));
+  } else if (strcmp("JAI Corporation", vendor_name) == 0) {
+    // Reading the black level register for both streams of the JAI FS 3500D takes too long.
+    // The frame rate the drops below 10 fps.
+    msg.black_level = 0;
+  } else {
+    arv_device_set_string_feature_value(p_device_, "BlackLevelSelector", "All");
+    msg.black_level = arv_device_get_float_feature_value(p_device_, "BlackLevel");
+  }
+
+  // White balance as TIS is providing
+  if (strcmp("The Imaging Source Europe GmbH", vendor_name) == 0)
+  {
+    msg.white_balance_red = arv_device_get_integer_feature_value(p_device_, "WhiteBalanceRedRegister") / 255.;
+    msg.white_balance_green = arv_device_get_integer_feature_value(p_device_, "WhiteBalanceGreenRegister") / 255.;
+    msg.white_balance_blue = arv_device_get_integer_feature_value(p_device_, "WhiteBalanceBlueRegister") / 255.;
+  } 
+  // the JAI cameras become too slow when reading out the DigitalRed and DigitalBlue values
+  // the white balance is adjusted by adjusting the Gain values for Red and Blue pixels
+  else if (strcmp("JAI Corporation", vendor_name) == 0)
+  {
+    msg.white_balance_red = 1.0;
+    msg.white_balance_green = 1.0;
+    msg.white_balance_blue = 1.0;
+  }
+  // the Basler cameras use the 'BalanceRatioAbs' keyword instead
+  else if (strcmp("Basler", vendor_name) == 0)
+  {
+    arv_device_set_string_feature_value(p_device_, "BalanceRatioSelector", "Red");
+    msg.white_balance_red = arv_device_get_float_feature_value(p_device_, "BalanceRatioAbs");
+    arv_device_set_string_feature_value(p_device_, "BalanceRatioSelector", "Green");
+    msg.white_balance_green = arv_device_get_float_feature_value(p_device_, "BalanceRatioAbs");
+    arv_device_set_string_feature_value(p_device_, "BalanceRatioSelector", "Blue");
+    msg.white_balance_blue = arv_device_get_float_feature_value(p_device_, "BalanceRatioAbs");
+  }
+  // the standard way 
+  else if (implemented_features_["BalanceRatio"] && implemented_features_["BalanceRatioSelector"])
+  {
+    arv_device_set_string_feature_value(p_device_, "BalanceRatioSelector", "Red");
+    msg.white_balance_red = arv_device_get_float_feature_value(p_device_, "BalanceRatio");
+    arv_device_set_string_feature_value(p_device_, "BalanceRatioSelector", "Green");
+    msg.white_balance_green = arv_device_get_float_feature_value(p_device_, "BalanceRatio");
+    arv_device_set_string_feature_value(p_device_, "BalanceRatioSelector", "Blue");
+    msg.white_balance_blue = arv_device_get_float_feature_value(p_device_, "BalanceRatio");
+  }
+
+  if (strcmp("Basler", vendor_name) == 0) {
+    msg.temperature = static_cast<float>(arv_device_get_float_feature_value(p_device_, "TemperatureAbs"));
+  } 
+  else if (implemented_features_["DeviceTemperature"])
+  {
+    msg.temperature = arv_device_get_float_feature_value(p_device_, "DeviceTemperature");
+  }
+
 }
 
 void CameraAravisNodelet::controlLostCallback(ArvDevice *p_gv_device, gpointer can_instance)
@@ -1684,7 +1818,6 @@ void CameraAravisNodelet::discoverFeatures()
 
   std::list<ArvDomNode*> todo;
   todo.push_front((ArvDomNode*)arv_gc_get_node(gc, "Root"));
-  GError *error = NULL;
 
   while (!todo.empty())
   {
@@ -1713,8 +1846,8 @@ void CameraAravisNodelet::discoverFeatures()
       //if (!(ARV_IS_GC_CATEGORY(node) || ARV_IS_GC_ENUM_ENTRY(node) /*|| ARV_IS_GC_PORT(node)*/)) {
       ArvGcFeatureNode *fnode = ARV_GC_FEATURE_NODE(node);
       const std::string fname(arv_gc_feature_node_get_name(fnode));
-      const bool usable = arv_gc_feature_node_is_available(fnode, &error)
-          && arv_gc_feature_node_is_implemented(fnode, &error);
+      const bool usable = arv_gc_feature_node_is_available(fnode, NULL)
+          && arv_gc_feature_node_is_implemented(fnode, NULL);
       ROS_INFO_STREAM("Feature " << fname << " is " << usable);
       implemented_features_.emplace(fname, usable);
       //}

@@ -24,6 +24,7 @@ generate_dynamic_reconfigure_options(cfg/CameraAravis.cfg)
 add_message_files(
    FILES
    CameraAutoInfo.msg
+   ExtendedCameraInfo.msg
 )
 
 add_service_files(
@@ -41,6 +42,7 @@ add_service_files(
 generate_messages(
    DEPENDENCIES
    std_msgs
+   sensor_msgs
 )
 
 catkin_package(
