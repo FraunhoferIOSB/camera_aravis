@@ -25,10 +25,9 @@ To run it in a given namespace, which is the better way to do it:
 ------------------------
 ## Continuous Integration
 
-service    | Noetic  | Melodic | Master
----------- | ------- | ------- | ------
-GitHub     | TODO    | TODO    | [![CI](https://github.com/FraunhoferIOSB/camera_aravis/actions/workflows/industrial_ci_action.yml/badge.svg?branch=ci)](https://github.com/FraunhoferIOSB/camera_aravis/actions/workflows/industrial_ci_action.yml/badge.svg?branch=master)
-build farm | TODO   | TODO     | TODO
+| Noetic  | Master |
+| ------- | ------ |
+| [![Build Farm](https://build.ros.org/job/Ndev__camera_aravis__ubuntu_focal_amd64/6/badge/icon?style=plastic)](https://build.ros.org/job/Ndev__camera_aravis__ubuntu_focal_amd64/6/)    | [![CI](https://github.com/FraunhoferIOSB/camera_aravis/actions/workflows/industrial_ci_action.yml/badge.svg?branch=ci)](https://github.com/FraunhoferIOSB/camera_aravis/actions/workflows/industrial_ci_action.yml/badge.svg?branch=master) |
 
 ------------------------
 ## Configuration
