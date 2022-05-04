@@ -2,6 +2,13 @@
 Changelog for package camera_aravis
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Add optional ExtendedCameraInfo message to publish additional camera acquisition parameters
+* Fix: Set reasonable height and width when not given in the CameraInfo
+* Contributors: Peter Mortimer
+
+
 4.0.1 (2022-03-25)
 ------------------
 * Add ROS getter/setter services for camera features
@@ -16,7 +23,6 @@ Changelog for package camera_aravis
 * Major refactoring
 * Add support for ROS Noetic and aravis-0.6
 * Fix several bugs (see git history)
-
 * Add new features:
 
   * Support for multisource cameras
