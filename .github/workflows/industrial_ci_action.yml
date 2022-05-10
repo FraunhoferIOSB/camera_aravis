@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ master, noetic-devel ] #  when master or melodic-devel branch is pushed to
+    branches: [ master, noetic-devel ] #  when master or noetic-devel branch is pushed to
   pull_request:
     branches: [ master ] # when there is a pull request against master
 
