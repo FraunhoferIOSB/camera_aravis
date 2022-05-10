@@ -25,12 +25,11 @@ To run it in a given namespace, which is the better way to do it:
 ------------------------
 ## Continuous Integration
 
-| service    | Noetic  | Master
-| ---------- | ------- | ------
-| GitHub     | -    | [![CI](https://github.com/FraunhoferIOSB/camera_aravis/actions/workflows/industrial_ci_action.yml/badge.svg?branch=ci)](https://github.com/FraunhoferIOSB/camera_aravis/actions/workflows/industrial_ci_action.yml/badge.svg?branch=master)
-| Build Farm | [![Noetic](https://build.ros.org/job/Ndev__camera_aravis__ubuntu_focal_amd64/6/badge/icon?style=plastic&subject=Noetic)](https://build.ros.org/job/Ndev__camera_aravis__ubuntu_focal_amd64/6/)   | -
+| Service    | Noetic  | Master |
+| ---------- | ------- | ------ |
+| GitHub     | [![build](https://github.com/FraunhoferIOSB/camera_aravis/actions/workflows/industrial_ci_action.yml/badge.svg?branch=noetic-devel)](https://github.com/FraunhoferIOSB/camera_aravis/actions/workflows/industrial_ci_action.yml/badge.svg?branch=noetic-devel)    | [![build](https://github.com/FraunhoferIOSB/camera_aravis/actions/workflows/industrial_ci_action.yml/badge.svg?branch=master)](https://github.com/FraunhoferIOSB/camera_aravis/actions/workflows/industrial_ci_action.yml/badge.svg?branch=master) |
+| ROS Build Farm | [![build](https://build.ros.org/job/Ndev__camera_aravis__ubuntu_focal_amd64/6/badge/icon?style=plastic&subject=build)](https://build.ros.org/job/Ndev__camera_aravis__ubuntu_focal_amd64/6/)   | N/A |
 
-------------------------
 ## Configuration
 
 This ROS node publishes messages image_raw and camera_info for a specified camera.  It supports
