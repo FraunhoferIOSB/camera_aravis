@@ -1671,7 +1671,8 @@ void CameraAravisNodelet::newBufferReady(ArvStream *p_stream, CameraAravisNodele
 
 void CameraAravisNodelet::fillExtendedCameraInfoMessage(ExtendedCameraInfo &msg) 
 {
-  const char *vendor_name = arv_camera_get_vendor_name(p_camera_);
+  const char* vendor_name = arv_camera_get_vendor_name(p_camera_);
+  const char* model_name = arv_camera_get_model_name(p_camera_); 
 
   if (strcmp("Basler", vendor_name) == 0) {
     msg.exposure_time = arv_device_get_float_feature_value(p_device_, "ExposureTimeAbs");
@@ -1688,16 +1689,34 @@ void CameraAravisNodelet::fillExtendedCameraInfoMessage(ExtendedCameraInfo &msg)
   {
     msg.gain = arv_device_get_float_feature_value(p_device_, "Gain");
   }
+
+
   if (strcmp("Basler", vendor_name) == 0) {
+    // the Basler cameras use the BlackLevelRaw keyword instead
     arv_device_set_string_feature_value(p_device_, "BlackLevelSelector", "All");
     msg.black_level = static_cast<float>(arv_device_get_integer_feature_value(p_device_, "BlackLevelRaw"));
   } else if (strcmp("JAI Corporation", vendor_name) == 0) {
-    // Reading the black level register for both streams of the JAI FS 3500D takes too long.
-    // The frame rate the drops below 10 fps.
-    msg.black_level = 0;
+
+    msg.black_level = 0.0;
+
+    if (strcmp("FS-3200D-10GE", model_name) == 0) {
+      // Load the black level values directly from the memory locations of the JAI FS-3200D-10GE.
+      // This allows a stable frame rate >10 FPS on a 10GE connection.
+      guint64 black_level_address = 0x00060104;
+      guint32 black_level_register;
+      uint32_t black_level_register_big_endian;
+      float_t* black_level;
+      
+      arv_device_read_memory(p_device_, black_level_address, 4, &black_level_register, NULL);
+      black_level_register_big_endian = __builtin_bswap32 (black_level_register);
+      black_level = reinterpret_cast<float_t*>(&black_level_register_big_endian);
+
+      msg.black_level = *black_level;
+    }
+
   } else {
     arv_device_set_string_feature_value(p_device_, "BlackLevelSelector", "All");
-    msg.black_level = arv_device_get_float_feature_value(p_device_, "BlackLevel");
+    msg.black_level = (float) arv_device_get_integer_feature_value(p_device_, "BlackLevel");
   }
 
   // White balance as TIS is providing
@@ -1707,23 +1726,87 @@ void CameraAravisNodelet::fillExtendedCameraInfoMessage(ExtendedCameraInfo &msg)
     msg.white_balance_green = arv_device_get_integer_feature_value(p_device_, "WhiteBalanceGreenRegister") / 255.;
     msg.white_balance_blue = arv_device_get_integer_feature_value(p_device_, "WhiteBalanceBlueRegister") / 255.;
   } 
-  // the JAI cameras become too slow when reading out the DigitalRed and DigitalBlue values
-  // the white balance is adjusted by adjusting the Gain values for Red and Blue pixels
+  // The JAI cameras become too slow when reading out the DigitalRed and DigitalBlue values.
+  // The white balance is adjusted by adjusting the Gain values for Red and Blue pixels.
   else if (strcmp("JAI Corporation", vendor_name) == 0)
   {
-    msg.white_balance_red = 1.0;
-    msg.white_balance_green = 1.0;
-    msg.white_balance_blue = 1.0;
+    msg.white_balance_red = 0.0;
+    msg.white_balance_green = 0.0;
+    msg.white_balance_blue = 0.0;
+
+    if (strcmp("FS-3200D-10GE", model_name) == 0) {
+      // Load the white balance values directly from the memory locations of the JAI FS-3200D-10GE.
+      // This allows a stable frame rate >10 FPS on a 10GE connection.
+
+      guint64 digital_red_memory_address = 0x00060018;
+      guint64 digital_blue_memory_address = 0x00060020;
+      guint32 n_bytes = 4;
+
+      guint32 digital_red_register;
+      uint32_t digital_red_big_endian;
+      float_t digital_red;
+
+      guint32 digital_blue_register;
+      uint32_t digital_blue_big_endian;
+      float_t digital_blue;
+
+      arv_device_read_memory(p_device_, digital_red_memory_address, n_bytes, &digital_red_register, NULL);
+      digital_red_big_endian = __builtin_bswap32 (digital_red_register);
+      std::copy(reinterpret_cast<char*>(&digital_red_big_endian), reinterpret_cast<char*>(&digital_red_big_endian) + 4, reinterpret_cast<char*>(&digital_red));
+
+      arv_device_read_memory(p_device_, digital_blue_memory_address, n_bytes, &digital_blue_register, NULL);
+      digital_blue_big_endian = __builtin_bswap32 (digital_blue_register);
+      std::copy(reinterpret_cast<char*>(&digital_blue_big_endian), reinterpret_cast<char*>(&digital_blue_big_endian) + 4, reinterpret_cast<char*>(&digital_blue));
+
+      msg.white_balance_red = digital_red;
+      msg.white_balance_green = 1.0;
+      msg.white_balance_blue = digital_blue;
+    }
+
   }
   // the Basler cameras use the 'BalanceRatioAbs' keyword instead
   else if (strcmp("Basler", vendor_name) == 0)
   {
-    arv_device_set_string_feature_value(p_device_, "BalanceRatioSelector", "Red");
-    msg.white_balance_red = arv_device_get_float_feature_value(p_device_, "BalanceRatioAbs");
-    arv_device_set_string_feature_value(p_device_, "BalanceRatioSelector", "Green");
-    msg.white_balance_green = arv_device_get_float_feature_value(p_device_, "BalanceRatioAbs");
-    arv_device_set_string_feature_value(p_device_, "BalanceRatioSelector", "Blue");
-    msg.white_balance_blue = arv_device_get_float_feature_value(p_device_, "BalanceRatioAbs");
+    // faster access to white balance values by reading from the known memory locations of the Basler acA2440-20gc
+    if (strcmp("acA2440-20gc", model_name) == 0) {
+
+      guint64 balance_ratio_red_memory_address = 0x00020424;
+      guint64 balance_ratio_green_memory_address = 0x00020444;
+      guint64 balance_ratio_blue_memory_address = 0x00020464;
+      float_t balance_ratio_raw2abs_scaling = 0.01563;
+      guint32 n_bytes = 4;
+
+      guint32 balance_ratio_register_red;
+      uint32_t balance_ratio_red;
+
+      guint32 balance_ratio_register_green;
+      uint32_t balance_ratio_green;
+
+      guint32 balance_ratio_register_blue;
+      uint32_t balance_ratio_blue;
+
+      /* Red */
+      arv_device_read_memory(p_device_, balance_ratio_red_memory_address, n_bytes, &balance_ratio_register_red, NULL);
+      balance_ratio_red = __builtin_bswap32 (balance_ratio_register_red);
+      msg.white_balance_red = (float) balance_ratio_red * balance_ratio_raw2abs_scaling;
+      /* Green */
+      arv_device_read_memory(p_device_, balance_ratio_green_memory_address, n_bytes, &balance_ratio_register_green, NULL);
+      balance_ratio_green = __builtin_bswap32 (balance_ratio_register_green);
+      msg.white_balance_green = (float) balance_ratio_green * balance_ratio_raw2abs_scaling;
+      /* Blue */
+      arv_device_read_memory(p_device_, balance_ratio_blue_memory_address, n_bytes, &balance_ratio_register_blue, NULL);
+      balance_ratio_blue = __builtin_bswap32 (balance_ratio_register_blue);
+      msg.white_balance_blue = (float) balance_ratio_blue * balance_ratio_raw2abs_scaling;
+    }
+    else {
+      arv_device_set_string_feature_value(p_device_, "BalanceRatioSelector", "Red");
+      msg.white_balance_red = arv_device_get_float_feature_value(p_device_, "BalanceRatioAbs");
+      arv_device_set_string_feature_value(p_device_, "BalanceRatioSelector", "Green");
+      msg.white_balance_green = arv_device_get_float_feature_value(p_device_, "BalanceRatioAbs");
+      arv_device_set_string_feature_value(p_device_, "BalanceRatioSelector", "Blue");
+      msg.white_balance_blue = arv_device_get_float_feature_value(p_device_, "BalanceRatioAbs");
+    }
+    
   }
   // the standard way 
   else if (implemented_features_["BalanceRatio"] && implemented_features_["BalanceRatioSelector"])
