@@ -41,7 +41,7 @@ a variety of camera features via the ROS reconfigure_gui, including the followin
 * AcquisitionMode      (string: Continuous, SingleFrame, MultiFrame)
 * AcquisitionFrameRate (float)
 * TriggerMode          (string: Off, On)
-* TriggerSource        (string: Software, Line1, Line2)
+* TriggerSource        (string: Any, Software, Line0, Line1, Line2)
 * softwaretriggerrate  (float)
 * frame_id             (string)
 * FocusPos             (integer)
