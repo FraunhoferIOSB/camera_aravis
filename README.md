@@ -16,11 +16,11 @@ sudo apt install libaravis-dev
 
 The basic command to run camera_aravis:
 
-	$ rosrun camera_aravis camnode
+	$ rosrun camera_aravis cam_aravis
 
-To run it in a given namespace, which is the better way to do it:
+To run it in a given namespace:
 
-	$ ROS_NAMESPACE=cam1 rosrun camera_aravis camnode
+	$ ROS_NAMESPACE=cam1 rosrun camera_aravis cam_aravis
 
 ------------------------
 ## Continuous Integration
@@ -63,10 +63,10 @@ called "BlackLevelRaw", and a string enum feature called "PixelFormat" that take
 must be, respectively, a bool, an integer and a string.  Also note that boolean features must
 be specified as ROS params false/true, not as integer 0/1.
 
-	$ rosparam set cam1/GammaEnable false
-	$ rosparam set cam1/BlackLevelRaw 5
-	$ rosparam set cam1/PixelFormat Mono12
-	$ ROS_NAMESPACE=cam1 rosrun camera_aravis camnode
+	$ rosparam set /camera_aravis/GammaEnable false
+	$ rosparam set /camera_aravis/BlackLevelRaw 5
+	$ rosparam set /camera_aravis/PixelFormat Mono12
+	$ rosrun camera_aravis cam_aravis
 
 
 ------------------------
@@ -75,13 +75,13 @@ command-line, or via parameter.  Runs one camera per node.
 
 To specify which camera to open, via the command-line:
 
-	$ ROS_NAMESPACE=cam1 rosrun camera_aravis camnode Basler-21237813
+	$ rosrun camera_aravis cam_aravis _guid:=Basler-21237813
 
 
 To specify which camera to open, via a parameter:
 
-	$ rosparam set cam1/guid Basler-21237813
-	$ ROS_NAMESPACE=cam1 rosrun camera_aravis camnode
+	$ rosparam set /camera_aravis/guid Basler-21237813
+	$ rosrun camera_aravis cam_aravis
 
 
 ------------------------
