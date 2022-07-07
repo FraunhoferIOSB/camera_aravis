@@ -531,7 +531,6 @@ void CameraAravisNodelet::onInit()
       p_camera_ = arv_camera_new(guid.c_str());
     }
     ros::Duration(1.0).sleep();
-    ros::spinOnce();
   }
 
   p_device_ = arv_camera_get_device(p_camera_);
