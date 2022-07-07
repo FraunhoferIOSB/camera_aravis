@@ -1855,10 +1855,7 @@ void CameraAravisNodelet::discoverFeatures()
       const bool usable = arv_gc_feature_node_is_available(fnode, NULL)
           && arv_gc_feature_node_is_implemented(fnode, NULL);
 
-      if(verbose_)
-      {
-        ROS_INFO_STREAM("Feature " << fname << " is " << (usable ? "usable" : "not usable"));
-      }
+      ROS_INFO_STREAM_COND(verbose_, "Feature " << fname << " is " << (usable ? "usable" : "not usable"));
       implemented_features_.emplace(fname, usable);
       //}
     }
