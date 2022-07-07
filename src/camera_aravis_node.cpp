@@ -37,12 +37,11 @@
 // rosparam set camnode/GainAuto 1
 //
 
+#include <camera_aravis/camera_aravis_nodelet.h>
 
 #include <nodelet/loader.h>
-#include "../include/camera_aravis/camera_aravis_nodelet.h"
 
-
-int main(int argc, char** argv) 
+int main(int argc, char** argv)
 {
 	ros::init(argc, argv, "camera_aravis");
 	nodelet::Loader manager(ros::NodeHandle("~"));
@@ -50,7 +49,6 @@ int main(int argc, char** argv)
 	nodelet::V_string nargv;
 	manager.load(ros::this_node::getName(), "camera_aravis/CameraAravisNodelet", remap, nargv);
 	ros::spin();
-    
+
     return 0;
 }
-
