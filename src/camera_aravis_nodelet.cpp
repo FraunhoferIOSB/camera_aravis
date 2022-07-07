@@ -22,7 +22,7 @@
  *
  ****************************************************************************/
 
-#include "camera_aravis/camera_aravis_nodelet.h"
+#include <camera_aravis/camera_aravis_nodelet.h>
 
 #include <pluginlib/class_list_macros.h>
 PLUGINLIB_EXPORT_CLASS(camera_aravis::CameraAravisNodelet, nodelet::Nodelet)

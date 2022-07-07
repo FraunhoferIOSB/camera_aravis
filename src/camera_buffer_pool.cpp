@@ -22,7 +22,7 @@
  *
  ****************************************************************************/
 
-#include "camera_aravis/camera_buffer_pool.h"
+#include <camera_aravis/camera_buffer_pool.h>
 
 namespace camera_aravis
 {

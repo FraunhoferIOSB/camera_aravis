@@ -37,10 +37,9 @@
 // rosparam set camnode/GainAuto 1
 //
 
+#include <camera_aravis/camera_aravis_nodelet.h>
 
 #include <nodelet/loader.h>
-#include "camera_aravis/camera_aravis_nodelet.h"
-
 
 int main(int argc, char** argv)
 {
