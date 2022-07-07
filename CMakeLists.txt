@@ -53,6 +53,7 @@ catkin_package(
 )
 
 include_directories(cfg
+  include
   ${catkin_INCLUDE_DIRS}
   ${Aravis_INCLUDE_DIRS}
   ${GLIB2_INCLUDE_DIRS})

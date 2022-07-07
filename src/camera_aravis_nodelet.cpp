@@ -22,7 +22,7 @@
  *
  ****************************************************************************/
 
-#include "../include/camera_aravis/camera_aravis_nodelet.h"
+#include "camera_aravis/camera_aravis_nodelet.h"
 
 #include <pluginlib/class_list_macros.h>
 PLUGINLIB_EXPORT_CLASS(camera_aravis::CameraAravisNodelet, nodelet::Nodelet)
@@ -762,7 +762,7 @@ void CameraAravisNodelet::onInit()
       p_camera_info_managers_[i].reset(new camera_info_manager::CameraInfoManager(pnh, camera_info_frame_id, calib_urls[i]));
     }
 
-    
+
     ROS_INFO("Reset %s Camera Info Manager", stream_names_[i].c_str());
     ROS_INFO("%s Calib URL: %s", stream_names_[i].c_str(), calib_urls[i].c_str());
 
@@ -1633,7 +1633,7 @@ void CameraAravisNodelet::newBufferReady(ArvStream *p_stream, CameraAravisNodele
         p_can->camera_infos_[stream_id]->width = p_can->roi_.width;
         p_can->camera_infos_[stream_id]->height = p_can->roi_.height;
       }
-      
+
 
       p_can->cam_pubs_[stream_id].publish(msg_ptr, p_can->camera_infos_[stream_id]);
 
@@ -1668,17 +1668,17 @@ void CameraAravisNodelet::newBufferReady(ArvStream *p_stream, CameraAravisNodele
   }
 }
 
-void CameraAravisNodelet::fillExtendedCameraInfoMessage(ExtendedCameraInfo &msg) 
+void CameraAravisNodelet::fillExtendedCameraInfoMessage(ExtendedCameraInfo &msg)
 {
   const char *vendor_name = arv_camera_get_vendor_name(p_camera_);
 
   if (strcmp("Basler", vendor_name) == 0) {
     msg.exposure_time = arv_device_get_float_feature_value(p_device_, "ExposureTimeAbs");
-  } 
+  }
   else if (implemented_features_["ExposureTime"])
   {
     msg.exposure_time = arv_device_get_float_feature_value(p_device_, "ExposureTime");
-  } 
+  }
 
   if (strcmp("Basler", vendor_name) == 0) {
     msg.gain = static_cast<float>(arv_device_get_integer_feature_value(p_device_, "GainRaw"));
@@ -1705,7 +1705,7 @@ void CameraAravisNodelet::fillExtendedCameraInfoMessage(ExtendedCameraInfo &msg)
     msg.white_balance_red = arv_device_get_integer_feature_value(p_device_, "WhiteBalanceRedRegister") / 255.;
     msg.white_balance_green = arv_device_get_integer_feature_value(p_device_, "WhiteBalanceGreenRegister") / 255.;
     msg.white_balance_blue = arv_device_get_integer_feature_value(p_device_, "WhiteBalanceBlueRegister") / 255.;
-  } 
+  }
   // the JAI cameras become too slow when reading out the DigitalRed and DigitalBlue values
   // the white balance is adjusted by adjusting the Gain values for Red and Blue pixels
   else if (strcmp("JAI Corporation", vendor_name) == 0)
@@ -1724,7 +1724,7 @@ void CameraAravisNodelet::fillExtendedCameraInfoMessage(ExtendedCameraInfo &msg)
     arv_device_set_string_feature_value(p_device_, "BalanceRatioSelector", "Blue");
     msg.white_balance_blue = arv_device_get_float_feature_value(p_device_, "BalanceRatioAbs");
   }
-  // the standard way 
+  // the standard way
   else if (implemented_features_["BalanceRatio"] && implemented_features_["BalanceRatioSelector"])
   {
     arv_device_set_string_feature_value(p_device_, "BalanceRatioSelector", "Red");
@@ -1737,7 +1737,7 @@ void CameraAravisNodelet::fillExtendedCameraInfoMessage(ExtendedCameraInfo &msg)
 
   if (strcmp("Basler", vendor_name) == 0) {
     msg.temperature = static_cast<float>(arv_device_get_float_feature_value(p_device_, "TemperatureAbs"));
-  } 
+  }
   else if (implemented_features_["DeviceTemperature"])
   {
     msg.temperature = arv_device_get_float_feature_value(p_device_, "DeviceTemperature");
