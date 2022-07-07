@@ -892,7 +892,7 @@ void CameraAravisNodelet::spawnStream()
   for(int i = 0; i < num_streams_; i++) {
     image_transport::ImageTransport *p_transport;
     // Set up image_raw
-    std::string topic_name = ros::this_node::getNamespace();
+    std::string topic_name = this->getName();
     p_transport = new image_transport::ImageTransport(pnh);
     if(num_streams_ != 1 || !stream_names_[i].empty()) {
       topic_name += "/" + stream_names_[i];
