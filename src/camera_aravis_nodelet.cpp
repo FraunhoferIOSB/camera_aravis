@@ -1345,7 +1345,7 @@ void CameraAravisNodelet::rosReconfigureCallback(Config &config, uint32_t level)
   if (config.TriggerMode.compare("Off") != 0)
   {
     config.AcquisitionFrameRate = config_.AcquisitionFrameRate;
-    ROS_WARN("TriggerMode is active. Cannot manually set AcquisitionFrameRate.");
+    ROS_WARN("TriggerMode is active (Trigger Source: %s). Cannot manually set AcquisitionFrameRate.", config_.TriggerSource.c_str());
   }
 
   // Find valid user changes we need to react to.
