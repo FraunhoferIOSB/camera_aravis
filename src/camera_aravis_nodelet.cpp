@@ -490,6 +490,8 @@ void CameraAravisNodelet::onInit()
 {
   ros::NodeHandle pnh = getPrivateNodeHandle();
 
+  verbose_ = pnh.param("verbose", verbose_);
+
   // Print out some useful info.
   ROS_INFO("Attached cameras:");
   arv_update_device_list();
@@ -1847,7 +1849,11 @@ void CameraAravisNodelet::discoverFeatures()
       const std::string fname(arv_gc_feature_node_get_name(fnode));
       const bool usable = arv_gc_feature_node_is_available(fnode, NULL)
           && arv_gc_feature_node_is_implemented(fnode, NULL);
-      ROS_INFO_STREAM("Feature " << fname << " is " << usable);
+
+      if(verbose_)
+      {
+        ROS_INFO_STREAM("Feature " << fname << " is " << (usable ? "usable" : "not usable"));
+      }
       implemented_features_.emplace(fname, usable);
       //}
     }

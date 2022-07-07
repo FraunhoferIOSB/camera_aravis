@@ -209,6 +209,8 @@ public:
   virtual ~CameraAravisNodelet();
 
 private:
+  bool verbose_ = false;
+
   virtual void onInit() override;
   void spawnStream();
 
