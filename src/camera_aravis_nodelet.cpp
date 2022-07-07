@@ -549,12 +549,17 @@ void CameraAravisNodelet::onInit()
   discoverFeatures();
 
   // Check the number of streams for this camera
-  num_streams_ = 0;
   num_streams_ = arv_device_get_integer_feature_value(p_device_, "DeviceStreamChannelCount");
   // if this return 0, try the deprecated GevStreamChannelCount in case this is an older camera
-  if (num_streams_ == 0) {
+  if (!num_streams_) {
     num_streams_ = arv_device_get_integer_feature_value(p_device_, "GevStreamChannelCount");
   }
+  // if this also returns 0, assume number of streams = 1
+  if (!num_streams_) {
+    ROS_WARN("Unable to detect number of supported stream channels.");
+    num_streams_ = 1;
+  }
+
   ROS_INFO("Number of supported stream channels %i.", (int) num_streams_);
 
   std::string stream_channel_args;

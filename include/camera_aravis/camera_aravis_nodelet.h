@@ -211,6 +211,16 @@ public:
 private:
   bool verbose_ = false;
 
+  ArvCamera *p_camera_ = NULL;
+  ArvDevice *p_device_ = NULL;
+  gint num_streams_ = 0;
+  std::vector<ArvStream *> p_streams_;
+  std::vector<std::string> stream_names_;
+  bool extended_camera_info_;
+  std::vector<CameraBufferPool::Ptr> p_buffer_pools_;
+  int32_t acquire_ = 0;
+  std::vector<ConversionFunction> convert_formats;
+
   virtual void onInit() override;
   void spawnStream();
 
@@ -312,7 +322,7 @@ protected:
 
   Config config_;
   Config config_min_;
-  Config config_max_;  
+  Config config_max_;
   bool   use_ptp_stamp_;
 
   std::atomic<bool> spawning_;
@@ -351,16 +361,6 @@ protected:
     CameraAravisNodelet* can;
     size_t stream_id;
   };
-
-  ArvCamera *p_camera_ = NULL;
-  ArvDevice *p_device_ = NULL;
-  gint num_streams_;
-  std::vector<ArvStream *> p_streams_;
-  std::vector<std::string> stream_names_;
-  bool extended_camera_info_;
-  std::vector<CameraBufferPool::Ptr> p_buffer_pools_;
-  int32_t acquire_ = 0;
-  std::vector<ConversionFunction> convert_formats;
 };
 
 } // end namespace camera_aravis
