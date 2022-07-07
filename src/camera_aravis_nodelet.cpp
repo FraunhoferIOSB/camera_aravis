@@ -531,7 +531,6 @@ void CameraAravisNodelet::onInit()
       p_camera_ = arv_camera_new(guid.c_str());
     }
     ros::Duration(1.0).sleep();
-    ros::spinOnce();
   }
 
   p_device_ = arv_camera_get_device(p_camera_);
@@ -893,7 +892,7 @@ void CameraAravisNodelet::spawnStream()
   for(int i = 0; i < num_streams_; i++) {
     image_transport::ImageTransport *p_transport;
     // Set up image_raw
-    std::string topic_name = ros::this_node::getNamespace();
+    std::string topic_name = this->getName();
     p_transport = new image_transport::ImageTransport(pnh);
     if(num_streams_ != 1 || !stream_names_[i].empty()) {
       topic_name += "/" + stream_names_[i];
@@ -1345,7 +1344,7 @@ void CameraAravisNodelet::rosReconfigureCallback(Config &config, uint32_t level)
   if (config.TriggerMode.compare("Off") != 0)
   {
     config.AcquisitionFrameRate = config_.AcquisitionFrameRate;
-    ROS_WARN("TriggerMode is active. Cannot manually set AcquisitionFrameRate.");
+    ROS_WARN("TriggerMode is active (Trigger Source: %s). Cannot manually set AcquisitionFrameRate.", config_.TriggerSource.c_str());
   }
 
   // Find valid user changes we need to react to.
