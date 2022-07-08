@@ -209,6 +209,8 @@ public:
   virtual ~CameraAravisNodelet();
 
 private:
+  bool verbose_ = false;
+
   ArvCamera *p_camera_ = NULL;
   ArvDevice *p_device_ = NULL;
   gint num_streams_ = 0;
