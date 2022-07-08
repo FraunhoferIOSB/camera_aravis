@@ -628,13 +628,15 @@ bool CameraAravisNodelet::setBooleanFeatureCallback(camera_aravis::set_boolean_f
 
 void CameraAravisNodelet::resetPtpClock()
 {
+  // a PTP slave can take the following states: Slave, Listening, Uncalibrated, Faulty, Disabled
   std::string ptp_status(arv_device_get_string_feature_value(p_device_, "GevIEEE1588Status"));
-  if (ptp_status != std::string("Slave"))
+  if (ptp_status == std::string("Faulty") || ptp_status == std::string("Disabled"))
   {
-    ROS_INFO("camera_aravis: Reset ptp clock");
+    ROS_INFO("camera_aravis: Reset ptp clock (was set to %s)", ptp_status.c_str());
     arv_device_set_boolean_feature_value(p_device_, "GevIEEE1588", false);
     arv_device_set_boolean_feature_value(p_device_, "GevIEEE1588", true);
   }
+  
 }
 
 void CameraAravisNodelet::cameraAutoInfoCallback(const CameraAutoInfoConstPtr &msg_ptr)
