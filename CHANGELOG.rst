@@ -2,8 +2,8 @@
 Changelog for package camera_aravis
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+4.0.3 (2022-07-08)
+------------------
 * Refactor image conversion (`#20 <https://github.com/FraunhoferIOSB/camera_aravis/issues/20>`_)
 * Use plain file names for includes (`#17 <https://github.com/FraunhoferIOSB/camera_aravis/issues/17>`_)
 * Add verbose flag for feature detection (default = false) (`#19 <https://github.com/FraunhoferIOSB/camera_aravis/issues/19>`_)
