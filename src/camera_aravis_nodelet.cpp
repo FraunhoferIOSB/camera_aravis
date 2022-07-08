@@ -94,7 +94,11 @@ void CameraAravisNodelet::onInit()
 {
   ros::NodeHandle pnh = getPrivateNodeHandle();
 
-  verbose_ = pnh.param("verbose", verbose_);
+  verbose_ = pnh.param<bool>("verbose", verbose_);
+  guid_ = pnh.param<std::string>("guid", guid_); // Get the camera guid as a parameter or use the first device.
+  use_ptp_stamp_ = pnh.param<bool>("use_ptp_timestamp", use_ptp_stamp_);
+  extended_camera_info_ = pnh.param<bool>("ExtendedCameraInfo", extended_camera_info_); // publish an extended camera info message
+  pub_tf_optical_ = pnh.param<bool>("publish_tf", pub_tf_optical_); // should we publish tf transforms to camera optical frame?
 
   // Print out some useful info.
   ROS_INFO("Attached cameras:");
@@ -113,28 +117,18 @@ void CameraAravisNodelet::onInit()
     return;
   }
 
-  // Get the camera guid as a parameter or use the first device.
-  std::string guid;
-  if (pnh.hasParam("guid"))
-  {
-    pnh.getParam("guid", guid);
-  }
-
-  // Get PTP timestamp parameter
-  pnh.param<bool>("use_ptp_timestamp", use_ptp_stamp_, false);
-
   // Open the camera, and set it up.
   while (!p_camera_)
   {
-    if (guid.empty())
+    if (guid_.empty())
     {
       ROS_INFO("Opening: (any)");
       p_camera_ = arv_camera_new(NULL);
     }
     else
     {
-      ROS_INFO_STREAM("Opening: " << guid);
-      p_camera_ = arv_camera_new(guid.c_str());
+      ROS_INFO_STREAM("Opening: " << guid_);
+      p_camera_ = arv_camera_new(guid_.c_str());
     }
     ros::Duration(1.0).sleep();
   }
@@ -302,13 +296,7 @@ void CameraAravisNodelet::onInit()
   setAutoMaster(config_.AutoMaster);
   setAutoSlave(config_.AutoSlave);
 
-  // publish an extended camera info message
-  pnh.param<bool>("ExtendedCameraInfo", extended_camera_info_, false);
-
-  // should we publish tf transforms to camera optical frame?
-  bool pub_tf_optical;
-  pnh.param<bool>("publish_tf", pub_tf_optical, false);
-  if (pub_tf_optical)
+  if (pub_tf_optical_)
   {
     tf_optical_.header.frame_id = config_.frame_id;
     tf_optical_.child_frame_id = config_.frame_id + "_optical";
@@ -457,11 +445,6 @@ void CameraAravisNodelet::spawnStream()
 {
   ros::NodeHandle nh  = getNodeHandle();
   ros::NodeHandle pnh = getPrivateNodeHandle();
-  std::string guid;
-  if (pnh.hasParam("guid"))
-  {
-    pnh.getParam("guid", guid);
-  }
 
   for(int i = 0; i < num_streams_; i++) {
     while (spawning_) {
@@ -484,7 +467,7 @@ void CameraAravisNodelet::spawnStream()
       }
       else
       {
-        ROS_WARN("Stream %i: Could not create image stream for %s.  Retrying...", i, guid.c_str());
+        ROS_WARN("Stream %i: Could not create image stream for %s.  Retrying...", i, guid_.c_str());
         ros::Duration(1.0).sleep();
         ros::spinOnce();
       }
