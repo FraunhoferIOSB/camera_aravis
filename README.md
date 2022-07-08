@@ -16,21 +16,20 @@ sudo apt install libaravis-dev
 
 The basic command to run camera_aravis:
 
-	$ rosrun camera_aravis camnode
+	$ rosrun camera_aravis cam_aravis
 
-To run it in a given namespace, which is the better way to do it:
+To run it in a given namespace:
 
-	$ ROS_NAMESPACE=cam1 rosrun camera_aravis camnode
+	$ ROS_NAMESPACE=cam1 rosrun camera_aravis cam_aravis
 
 ------------------------
 ## Continuous Integration
 
-| service    | Noetic  | Master
-| ---------- | ------- | ------
-| GitHub     | -    | [![CI](https://github.com/FraunhoferIOSB/camera_aravis/actions/workflows/industrial_ci_action.yml/badge.svg?branch=ci)](https://github.com/FraunhoferIOSB/camera_aravis/actions/workflows/industrial_ci_action.yml/badge.svg?branch=master)
-| Build Farm | [![Noetic](https://build.ros.org/job/Ndev__camera_aravis__ubuntu_focal_amd64/6/badge/icon?style=plastic&subject=Noetic)](https://build.ros.org/job/Ndev__camera_aravis__ubuntu_focal_amd64/6/)   | -
+| Service    | Noetic  | Master |
+| ---------- | ------- | ------ |
+| GitHub     | [![build](https://github.com/FraunhoferIOSB/camera_aravis/actions/workflows/industrial_ci_action.yml/badge.svg?branch=noetic-devel)](https://github.com/FraunhoferIOSB/camera_aravis/actions/workflows/industrial_ci_action.yml/badge.svg?branch=noetic-devel)    | [![build](https://github.com/FraunhoferIOSB/camera_aravis/actions/workflows/industrial_ci_action.yml/badge.svg?branch=master)](https://github.com/FraunhoferIOSB/camera_aravis/actions/workflows/industrial_ci_action.yml/badge.svg?branch=master) |
+| ROS Build Farm | [![build](https://build.ros.org/job/Ndev__camera_aravis__ubuntu_focal_amd64/6/badge/icon?style=plastic&subject=build)](https://build.ros.org/job/Ndev__camera_aravis__ubuntu_focal_amd64/6/)   | N/A |
 
-------------------------
 ## Configuration
 
 This ROS node publishes messages image_raw and camera_info for a specified camera.  It supports
@@ -42,7 +41,7 @@ a variety of camera features via the ROS reconfigure_gui, including the followin
 * AcquisitionMode      (string: Continuous, SingleFrame, MultiFrame)
 * AcquisitionFrameRate (float)
 * TriggerMode          (string: Off, On)
-* TriggerSource        (string: Software, Line1, Line2)
+* TriggerSource        (string: Any, Software, Line0, Line1, Line2)
 * softwaretriggerrate  (float)
 * frame_id             (string)
 * FocusPos             (integer)
@@ -64,10 +63,10 @@ called "BlackLevelRaw", and a string enum feature called "PixelFormat" that take
 must be, respectively, a bool, an integer and a string.  Also note that boolean features must
 be specified as ROS params false/true, not as integer 0/1.
 
-	$ rosparam set cam1/GammaEnable false
-	$ rosparam set cam1/BlackLevelRaw 5
-	$ rosparam set cam1/PixelFormat Mono12
-	$ ROS_NAMESPACE=cam1 rosrun camera_aravis camnode
+	$ rosparam set /camera_aravis/GammaEnable false
+	$ rosparam set /camera_aravis/BlackLevelRaw 5
+	$ rosparam set /camera_aravis/PixelFormat Mono12
+	$ rosrun camera_aravis cam_aravis
 
 
 ------------------------
@@ -76,13 +75,13 @@ command-line, or via parameter.  Runs one camera per node.
 
 To specify which camera to open, via the command-line:
 
-	$ ROS_NAMESPACE=cam1 rosrun camera_aravis camnode Basler-21237813
+	$ rosrun camera_aravis cam_aravis _guid:=Basler-21237813
 
 
 To specify which camera to open, via a parameter:
 
-	$ rosparam set cam1/guid Basler-21237813
-	$ ROS_NAMESPACE=cam1 rosrun camera_aravis camnode
+	$ rosparam set /camera_aravis/guid Basler-21237813
+	$ rosrun camera_aravis cam_aravis
 
 
 ------------------------

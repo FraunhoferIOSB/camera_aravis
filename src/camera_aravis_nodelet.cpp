@@ -2,428 +2,32 @@
  *
  * camera_aravis
  *
- * Copyright © 2019 Fraunhofer FKIE, Straw Lab, van Breugel Lab, and contributors
- * Authors: Dominik A. Klein,
- * 			Floris van Breugel,
- * 			Andrew Straw,
- * 			Steve Safarik
+ * Copyright © 2022 Fraunhofer IOSB and contributors
  *
- * Licensed under the LGPL, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
  *
- *     https://www.gnu.org/licenses/lgpl-2.0
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * You should have received a copy of the GNU Library General Public
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA  02110-1301, USA.
  *
  ****************************************************************************/
 
-#include "../include/camera_aravis/camera_aravis_nodelet.h"
+#include <camera_aravis/camera_aravis_nodelet.h>
 
 #include <pluginlib/class_list_macros.h>
 PLUGINLIB_EXPORT_CLASS(camera_aravis::CameraAravisNodelet, nodelet::Nodelet)
 
 namespace camera_aravis
 {
-
-void renameImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const std::string out_format) {
-  if (!in) {
-    ROS_WARN("camera_aravis::renameImg(): no input image given.");
-    return;
-  }
-
-  // make a shallow copy (in-place operation on input)
-  out = in;
-
-  out->encoding = out_format;
-}
-
-void shift(uint16_t* data, const size_t length, const size_t digits) {
-  for (size_t i=0; i<length; ++i) {
-    data[i] <<= digits;
-  }
-}
-
-void shiftImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const size_t n_digits, const std::string out_format)
-{
-  if (!in) {
-    ROS_WARN("camera_aravis::shiftImg(): no input image given.");
-    return;
-  }
-
-  // make a shallow copy (in-place operation on input)
-  out = in;
-
-  // shift
-  shift(reinterpret_cast<uint16_t*>(out->data.data()), out->data.size()/2, n_digits);
-  out->encoding = out_format;
-}
-
-void interleaveImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const size_t n_digits, const std::string out_format)
-{
-  if (!in) {
-    ROS_WARN("camera_aravis::interleaveImg(): no input image given.");
-    return;
-  }
-
-  if (!out) {
-    out.reset(new sensor_msgs::Image);
-    ROS_INFO("camera_aravis::interleaveImg(): no output image given. Reserved a new one.");
-  }
-
-  out->header = in->header;
-  out->height = in->height;
-  out->width = in->width;
-  out->is_bigendian = in->is_bigendian;
-  out->step = in->step;
-  out->data.resize(in->data.size());
-
-  const size_t n_bytes = in->data.size() / (3 * in->width * in->height);
-  uint8_t* c0 = in->data.data();
-  uint8_t* c1 = in->data.data() + (in->data.size() / 3);
-  uint8_t* c2 = in->data.data() + (2 * in->data.size() / 3);
-  uint8_t* o = out->data.data();
-
-  for (uint32_t h=0; h<in->height; ++h) {
-    for (uint32_t w=0; w<in->width; ++w) {
-      for (size_t i=0; i<n_bytes; ++i) {
-        o[i] = c0[i];
-        o[i+n_bytes] = c1[i];
-        o[i+2*n_bytes] = c2[i];
-      }
-      c0 += n_bytes;
-      c1 += n_bytes;
-      c2 += n_bytes;
-      o += 3*n_bytes;
-    }
-  }
-
-  if (n_digits>0) {
-    shift(reinterpret_cast<uint16_t*>(out->data.data()), out->data.size()/2, n_digits);
-  }
-  out->encoding = out_format;
-}
-
-void unpack10p32Img(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const std::string out_format) {
-  if (!in) {
-    ROS_WARN("camera_aravis::unpack10pImg(): no input image given.");
-    return;
-  }
-
-  if (!out) {
-    out.reset(new sensor_msgs::Image);
-    ROS_INFO("camera_aravis::unpack10pImg(): no output image given. Reserved a new one.");
-  }
-
-  out->header = in->header;
-  out->height = in->height;
-  out->width = in->width;
-  out->is_bigendian = in->is_bigendian;
-  out->step = (3*in->step)/2;
-  out->data.resize((3*in->data.size())/2);
-
-  // change pixel bit alignment from every 3*10+2 = 32 Bit = 4 Byte format LSB
-  //  byte 3 | byte 2 | byte 1 | byte 0
-  // 00CCCCCC CCCCBBBB BBBBBBAA AAAAAAAA
-  // into 3*16 = 48 Bit = 6 Byte format
-  //  bytes 5+4       | bytes 3+2       | bytes 1+0
-  // CCCCCCCC CC000000 BBBBBBBB BB000000 AAAAAAAA AA000000
-
-  uint8_t* from = in->data.data();
-  uint16_t* to = reinterpret_cast<uint16_t*>(out->data.data());
-  // unpack a full RGB pixel per iteration
-  for (size_t i=0; i<in->data.size()/4; ++i) {
-
-    std::memcpy(to, from, 2);
-    to[0] <<= 6;
-
-    std::memcpy(&to[1], &from[1], 2);
-    to[1] <<= 4;
-    to[1] &= 0b1111111111000000;
-
-    std::memcpy(&to[2], &from[2], 2);
-    to[2] <<= 2;
-    to[2] &= 0b1111111111000000;
-
-    to+=3;
-    from+=4;
-  }
-
-  out->encoding = out_format;
-}
-
-void unpack10PackedImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const std::string out_format) {
-  if (!in) {
-    ROS_WARN("camera_aravis::unpack10pImg(): no input image given.");
-    return;
-  }
-
-  if (!out) {
-    out.reset(new sensor_msgs::Image);
-    ROS_INFO("camera_aravis::unpack10pImg(): no output image given. Reserved a new one.");
-  }
-
-  out->header = in->header;
-  out->height = in->height;
-  out->width = in->width;
-  out->is_bigendian = in->is_bigendian;
-  out->step = (3*in->step)/2;
-  out->data.resize((3*in->data.size())/2);
-
-  // change pixel bit alignment from every 3*10+2 = 32 Bit = 4 Byte format
-  //  byte 3 | byte 2 | byte 1 | byte 0
-  // AAAAAAAA BBBBBBBB CCCCCCCC 00CCBBAA
-  // into 3*16 = 48 Bit = 6 Byte format
-  //  bytes 5+4       | bytes 3+2       | bytes 1+0
-  // CCCCCCCC CC000000 BBBBBBBB BB000000 AAAAAAAA AA000000
-
-  // note that in this old style GigE format, byte 0 contains the lsb of C, B as well as A
-
-  uint8_t* from = in->data.data();
-  uint8_t* to = out->data.data();
-  // unpack a RGB pixel per iteration
-  for (size_t i=0; i<in->data.size()/4; ++i) {
-
-    to[0] = from[0]<<6;
-    to[1] = from[3];
-    to[2] = (from[0] & 0b00001100)<<4;
-    to[3] = from[2];
-    to[4] = (from[0] & 0b00110000)<<2;
-    to[5] = from[1];
-
-    to+=6;
-    from+=4;
-  }
-  out->encoding = out_format;
-}
-
-
-void unpack10pMonoImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const std::string out_format) {
-  if (!in) {
-    ROS_WARN("camera_aravis::unpack10pImg(): no input image given.");
-    return;
-  }
-
-  if (!out) {
-    out.reset(new sensor_msgs::Image);
-    ROS_INFO("camera_aravis::unpack10pImg(): no output image given. Reserved a new one.");
-  }
-
-  out->header = in->header;
-  out->height = in->height;
-  out->width = in->width;
-  out->is_bigendian = in->is_bigendian;
-  out->step = (8*in->step)/5;
-  out->data.resize((8*in->data.size())/5);
-
-  // change pixel bit alignment from every 4*10 = 40 Bit = 5 Byte format LSB
-  // byte 4  | byte 3 | byte 2 | byte 1 | byte 0
-  // DDDDDDDD DDCCCCCC CCCCBBBB BBBBBBAA AAAAAAAA
-  // into 4*16 = 64 Bit = 8 Byte format
-  // bytes 7+6        | bytes 5+4       | bytes 3+2       | bytes 1+0
-  // DDDDDDDD DD000000 CCCCCCCC CC000000 BBBBBBBB BB000000 AAAAAAAA AA000000
-
-  uint8_t* from = in->data.data();
-  uint16_t* to = reinterpret_cast<uint16_t*>(out->data.data());
-  // unpack 4 mono pixels per iteration
-  for (size_t i=0; i<in->data.size()/5; ++i) {
-
-    std::memcpy(to, from, 2);
-    to[0] <<= 6;
-
-    std::memcpy(&to[1], &from[1], 2);
-    to[1] <<= 4;
-    to[1] &= 0b1111111111000000;
-
-    std::memcpy(&to[2], &from[2], 2);
-    to[2] <<= 2;
-    to[2] &= 0b1111111111000000;
-
-    std::memcpy(&to[3], &from[3], 2);
-    to[3] &= 0b1111111111000000;
-
-    to+=4;
-    from+=5;
-  }
-  out->encoding = out_format;
-}
-
-void unpack10PackedMonoImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const std::string out_format) {
-  if (!in) {
-    ROS_WARN("camera_aravis::unpack10pImg(): no input image given.");
-    return;
-  }
-
-  if (!out) {
-    out.reset(new sensor_msgs::Image);
-    ROS_INFO("camera_aravis::unpack10pImg(): no output image given. Reserved a new one.");
-  }
-
-  out->header = in->header;
-  out->height = in->height;
-  out->width = in->width;
-  out->is_bigendian = in->is_bigendian;
-  out->step = (4*in->step)/3;
-  out->data.resize((4*in->data.size())/3);
-
-  // change pixel bit alignment from every 2*10+4 = 24 Bit = 3 Byte format
-  //  byte 2 | byte 1 | byte 0
-  // BBBBBBBB 00BB00AA AAAAAAAA
-  // into 2*16 = 32 Bit = 4 Byte format
-  //  bytes 3+2       | bytes 1+0
-  // BBBBBBBB BB000000 AAAAAAAA AA000000
-
-  // note that in this old style GigE format, byte 1 contains the lsb of B as well as A
-
-  uint8_t* from = in->data.data();
-  uint8_t* to = out->data.data();
-  // unpack 4 mono pixels per iteration
-  for (size_t i=0; i<in->data.size()/3; ++i) {
-
-    to[0] = from[1]<<6;
-    to[1] = from[0];
-
-    to[2] = from[1] & 0b11000000;
-    to[3] = from[2];
-
-    to+=4;
-    from+=3;
-  }
-  out->encoding = out_format;
-}
-
-void unpack12pImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const std::string out_format) {
-  if (!in) {
-    ROS_WARN("camera_aravis::unpack12pImg(): no input image given.");
-    return;
-  }
-
-  if (!out) {
-    out.reset(new sensor_msgs::Image);
-    ROS_INFO("camera_aravis::unpack12pImg(): no output image given. Reserved a new one.");
-  }
-
-  out->header = in->header;
-  out->height = in->height;
-  out->width = in->width;
-  out->is_bigendian = in->is_bigendian;
-  out->step = (4*in->step)/3;
-  out->data.resize((4*in->data.size())/3);
-
-  // change pixel bit alignment from every 2*12 = 24 Bit = 3 Byte format LSB
-  //  byte 2 | byte 1 | byte 0
-  // BBBBBBBB BBBBAAAA AAAAAAAA
-  // into 2*16 = 32 Bit = 4 Byte format
-  //  bytes 3+2       | bytes 1+0
-  // BBBBBBBB BBBB0000 AAAAAAAA AAAA0000
-
-  uint8_t* from = in->data.data();
-  uint16_t* to = reinterpret_cast<uint16_t*>(out->data.data());
-  // unpack 2 values per iteration
-  for (size_t i=0; i<in->data.size()/3; ++i) {
-
-    std::memcpy(to, from, 2);
-    to[0] <<= 4;
-
-    std::memcpy(&to[1], &from[1], 2);
-    to[1] &= 0b1111111111110000;
-
-    to+=2;
-    from+=3;
-  }
-  out->encoding = out_format;
-}
-
-void unpack12PackedImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const std::string out_format) {
-  if (!in) {
-    ROS_WARN("camera_aravis::unpack12pImg(): no input image given.");
-    return;
-  }
-
-  if (!out) {
-    out.reset(new sensor_msgs::Image);
-    ROS_INFO("camera_aravis::unpack12pImg(): no output image given. Reserved a new one.");
-  }
-
-  out->header = in->header;
-  out->height = in->height;
-  out->width = in->width;
-  out->is_bigendian = in->is_bigendian;
-  out->step = (4*in->step)/3;
-  out->data.resize((4*in->data.size())/3);
-
-  // change pixel bit alignment from every 2*12 = 24 Bit = 3 Byte format
-  //  byte 2 | byte 1 | byte 0
-  // BBBBBBBB BBBBAAAA AAAAAAAA
-  // into 2*16 = 32 Bit = 4 Byte format
-  //  bytes 3+2       | bytes 1+0
-  // BBBBBBBB BBBB0000 AAAAAAAA AAAA0000
-
-  // note that in this old style GigE format, byte 1 contains the lsb of B as well as A
-
-  uint8_t* from = in->data.data();
-  uint8_t* to = out->data.data();
-  // unpack 2 values per iteration
-  for (size_t i=0; i<in->data.size()/3; ++i) {
-
-    to[0] = from[1]<<4;
-    to[1] = from[0];
-
-    to[2] = from[1] & 0b11110000;
-    to[3] = from[2];
-
-    to+=4;
-    from+=3;
-  }
-  out->encoding = out_format;
-}
-
-void unpack565pImg(sensor_msgs::ImagePtr& in, sensor_msgs::ImagePtr& out, const std::string out_format) {
-  if (!in) {
-    ROS_WARN("camera_aravis::unpack565pImg(): no input image given.");
-    return;
-  }
-
-  if (!out) {
-    out.reset(new sensor_msgs::Image);
-    ROS_INFO("camera_aravis::unpack565pImg(): no output image given. Reserved a new one.");
-  }
-
-  out->header = in->header;
-  out->height = in->height;
-  out->width = in->width;
-  out->is_bigendian = in->is_bigendian;
-  out->step = (3*in->step)/2;
-  out->data.resize((3*in->data.size())/2);
-
-  // change pixel bit alignment from every 5+6+5 = 16 Bit = 2 Byte format LSB
-  //  byte 1 | byte 0
-  // CCCCCBBB BBBAAAAA
-  // into 3*8 = 24 Bit = 3 Byte format
-  //  byte 2 | byte 1 | byte 0
-  // CCCCC000 BBBBBB00 AAAAA000
-
-  uint8_t* from = in->data.data();
-  uint8_t* to = out->data.data();
-  // unpack a whole RGB pixel per iteration
-  for (size_t i=0; i<in->data.size()/2; ++i) {
-    to[0] = from[0] << 3;
-
-    to[1] = from[0] >> 3;
-    to[1] |= (from[1]<<5);
-    to[1] &= 0b11111100;
-
-    to[2] = from[1] & 0b11111000;
-
-    to+=3;
-    from+=2;
-  }
-  out->encoding = out_format;
-}
 
 CameraAravisNodelet::CameraAravisNodelet()
 {
@@ -490,6 +94,8 @@ void CameraAravisNodelet::onInit()
 {
   ros::NodeHandle pnh = getPrivateNodeHandle();
 
+  verbose_ = pnh.param("verbose", verbose_);
+
   // Print out some useful info.
   ROS_INFO("Attached cameras:");
   arv_update_device_list();
@@ -531,7 +137,6 @@ void CameraAravisNodelet::onInit()
       p_camera_ = arv_camera_new(guid.c_str());
     }
     ros::Duration(1.0).sleep();
-    ros::spinOnce();
   }
 
   p_device_ = arv_camera_get_device(p_camera_);
@@ -548,12 +153,17 @@ void CameraAravisNodelet::onInit()
   discoverFeatures();
 
   // Check the number of streams for this camera
-  num_streams_ = 0;
   num_streams_ = arv_device_get_integer_feature_value(p_device_, "DeviceStreamChannelCount");
   // if this return 0, try the deprecated GevStreamChannelCount in case this is an older camera
-  if (num_streams_ == 0) {
+  if (!num_streams_) {
     num_streams_ = arv_device_get_integer_feature_value(p_device_, "GevStreamChannelCount");
   }
+  // if this also returns 0, assume number of streams = 1
+  if (!num_streams_) {
+    ROS_WARN("Unable to detect number of supported stream channels.");
+    num_streams_ = 1;
+  }
+
   ROS_INFO("Number of supported stream channels %i.", (int) num_streams_);
 
   std::string stream_channel_args;
@@ -763,7 +373,7 @@ void CameraAravisNodelet::onInit()
       p_camera_info_managers_[i].reset(new camera_info_manager::CameraInfoManager(pnh, camera_info_frame_id, calib_urls[i]));
     }
 
-    
+
     ROS_INFO("Reset %s Camera Info Manager", stream_names_[i].c_str());
     ROS_INFO("%s Calib URL: %s", stream_names_[i].c_str(), calib_urls[i].c_str());
 
@@ -893,7 +503,7 @@ void CameraAravisNodelet::spawnStream()
   for(int i = 0; i < num_streams_; i++) {
     image_transport::ImageTransport *p_transport;
     // Set up image_raw
-    std::string topic_name = ros::this_node::getNamespace();
+    std::string topic_name = this->getName();
     p_transport = new image_transport::ImageTransport(pnh);
     if(num_streams_ != 1 || !stream_names_[i].empty()) {
       topic_name += "/" + stream_names_[i];
@@ -1345,7 +955,7 @@ void CameraAravisNodelet::rosReconfigureCallback(Config &config, uint32_t level)
   if (config.TriggerMode.compare("Off") != 0)
   {
     config.AcquisitionFrameRate = config_.AcquisitionFrameRate;
-    ROS_WARN("TriggerMode is active. Cannot manually set AcquisitionFrameRate.");
+    ROS_WARN("TriggerMode is active (Trigger Source: %s). Cannot manually set AcquisitionFrameRate.", config_.TriggerSource.c_str());
   }
 
   // Find valid user changes we need to react to.
@@ -1634,7 +1244,7 @@ void CameraAravisNodelet::newBufferReady(ArvStream *p_stream, CameraAravisNodele
         p_can->camera_infos_[stream_id]->width = p_can->roi_.width;
         p_can->camera_infos_[stream_id]->height = p_can->roi_.height;
       }
-      
+
 
       p_can->cam_pubs_[stream_id].publish(msg_ptr, p_can->camera_infos_[stream_id]);
 
@@ -1669,17 +1279,17 @@ void CameraAravisNodelet::newBufferReady(ArvStream *p_stream, CameraAravisNodele
   }
 }
 
-void CameraAravisNodelet::fillExtendedCameraInfoMessage(ExtendedCameraInfo &msg) 
+void CameraAravisNodelet::fillExtendedCameraInfoMessage(ExtendedCameraInfo &msg)
 {
   const char *vendor_name = arv_camera_get_vendor_name(p_camera_);
 
   if (strcmp("Basler", vendor_name) == 0) {
     msg.exposure_time = arv_device_get_float_feature_value(p_device_, "ExposureTimeAbs");
-  } 
+  }
   else if (implemented_features_["ExposureTime"])
   {
     msg.exposure_time = arv_device_get_float_feature_value(p_device_, "ExposureTime");
-  } 
+  }
 
   if (strcmp("Basler", vendor_name) == 0) {
     msg.gain = static_cast<float>(arv_device_get_integer_feature_value(p_device_, "GainRaw"));
@@ -1706,7 +1316,7 @@ void CameraAravisNodelet::fillExtendedCameraInfoMessage(ExtendedCameraInfo &msg)
     msg.white_balance_red = arv_device_get_integer_feature_value(p_device_, "WhiteBalanceRedRegister") / 255.;
     msg.white_balance_green = arv_device_get_integer_feature_value(p_device_, "WhiteBalanceGreenRegister") / 255.;
     msg.white_balance_blue = arv_device_get_integer_feature_value(p_device_, "WhiteBalanceBlueRegister") / 255.;
-  } 
+  }
   // the JAI cameras become too slow when reading out the DigitalRed and DigitalBlue values
   // the white balance is adjusted by adjusting the Gain values for Red and Blue pixels
   else if (strcmp("JAI Corporation", vendor_name) == 0)
@@ -1725,7 +1335,7 @@ void CameraAravisNodelet::fillExtendedCameraInfoMessage(ExtendedCameraInfo &msg)
     arv_device_set_string_feature_value(p_device_, "BalanceRatioSelector", "Blue");
     msg.white_balance_blue = arv_device_get_float_feature_value(p_device_, "BalanceRatioAbs");
   }
-  // the standard way 
+  // the standard way
   else if (implemented_features_["BalanceRatio"] && implemented_features_["BalanceRatioSelector"])
   {
     arv_device_set_string_feature_value(p_device_, "BalanceRatioSelector", "Red");
@@ -1738,7 +1348,7 @@ void CameraAravisNodelet::fillExtendedCameraInfoMessage(ExtendedCameraInfo &msg)
 
   if (strcmp("Basler", vendor_name) == 0) {
     msg.temperature = static_cast<float>(arv_device_get_float_feature_value(p_device_, "TemperatureAbs"));
-  } 
+  }
   else if (implemented_features_["DeviceTemperature"])
   {
     msg.temperature = arv_device_get_float_feature_value(p_device_, "DeviceTemperature");
@@ -1848,7 +1458,8 @@ void CameraAravisNodelet::discoverFeatures()
       const std::string fname(arv_gc_feature_node_get_name(fnode));
       const bool usable = arv_gc_feature_node_is_available(fnode, NULL)
           && arv_gc_feature_node_is_implemented(fnode, NULL);
-      ROS_INFO_STREAM("Feature " << fname << " is " << usable);
+
+      ROS_INFO_STREAM_COND(verbose_, "Feature " << fname << " is " << (usable ? "usable" : "not usable"));
       implemented_features_.emplace(fname, usable);
       //}
     }
