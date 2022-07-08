@@ -79,7 +79,7 @@ set(LIBRARIES
 add_library(${PROJECT_NAME}
   src/camera_aravis_nodelet.cpp
   src/camera_buffer_pool.cpp
-  src/convertion_utils.cpp
+  src/conversion_utils.cpp
 )
 target_link_libraries(${PROJECT_NAME} ${LIBRARIES})
 add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})

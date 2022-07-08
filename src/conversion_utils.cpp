@@ -21,7 +21,7 @@
  *
  ****************************************************************************/
 
-#include <camera_aravis/convertion_utils.h>
+#include <camera_aravis/conversion_utils.h>
 
 #include <ros/ros.h>
 

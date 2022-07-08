@@ -21,8 +21,8 @@
  *
  ****************************************************************************/
 
-#ifndef INCLUDE_CAMERA_ARAVIS_CAMERA_ARAVIS_NODELET_H_
-#define INCLUDE_CAMERA_ARAVIS_CAMERA_ARAVIS_NODELET_H_
+#ifndef CAMERA_ARAVIS_CAMERA_ARAVIS_NODELET
+#define CAMERA_ARAVIS_CAMERA_ARAVIS_NODELET
 
 extern "C" {
 #include <arv.h>
@@ -73,7 +73,7 @@ extern "C" {
 #include <camera_aravis/set_boolean_feature_value.h>
 
 #include <camera_aravis/camera_buffer_pool.h>
-#include <camera_aravis/convertion_utils.h>
+#include <camera_aravis/conversion_utils.h>
 
 namespace camera_aravis
 {
@@ -241,4 +241,4 @@ protected:
 
 } // end namespace camera_aravis
 
-#endif /* INCLUDE_CAMERA_ARAVIS_CAMERA_ARAVIS_NODELET_H_ */
+#endif /* CAMERA_ARAVIS_CAMERA_ARAVIS_NODELET */

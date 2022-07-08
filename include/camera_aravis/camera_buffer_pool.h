@@ -21,8 +21,8 @@
  *
  ****************************************************************************/
 
-#ifndef INCLUDE_CAMERA_ARAVIS_CAMERA_BUFFER_POOL_H_
-#define INCLUDE_CAMERA_ARAVIS_CAMERA_BUFFER_POOL_H_
+#ifndef CAMERA_ARAVIS_CAMERA_BUFFER_POOL
+#define CAMERA_ARAVIS_CAMERA_BUFFER_POOL
 
 extern "C" {
 #include <arv.h>
@@ -112,4 +112,4 @@ protected:
 
 } /* namespace camera_aravis */
 
-#endif /* INCLUDE_CAMERA_ARAVIS_CAMERA_BUFFER_POOL_H_ */
+#endif /* CAMERA_ARAVIS_CAMERA_BUFFER_POOL */
