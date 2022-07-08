@@ -97,7 +97,7 @@ void CameraAravisNodelet::onInit()
   verbose_ = pnh.param<bool>("verbose", verbose_);
   guid_ = pnh.param<std::string>("guid", guid_); // Get the camera guid as a parameter or use the first device.
   use_ptp_stamp_ = pnh.param<bool>("use_ptp_timestamp", use_ptp_stamp_);
-  extended_camera_info_ = pnh.param<bool>("ExtendedCameraInfo", extended_camera_info_); // publish an extended camera info message
+  pub_ext_camera_info_ = pnh.param<bool>("ExtendedCameraInfo", pub_ext_camera_info_); // publish an extended camera info message
   pub_tf_optical_ = pnh.param<bool>("publish_tf", pub_tf_optical_); // should we publish tf transforms to camera optical frame?
 
   // Print out some useful info.
@@ -852,7 +852,7 @@ void CameraAravisNodelet::setAutoSlave(bool value)
 
 void CameraAravisNodelet::setExtendedCameraInfo(std::string channel_name, size_t stream_id)
 {
-  if (extended_camera_info_)
+  if (pub_ext_camera_info_)
   {
     if (channel_name.empty()) {
       extended_camera_info_pubs_[stream_id]  = getNodeHandle().advertise<ExtendedCameraInfo>(ros::names::remap("extended_camera_info"), 1, true);
@@ -1231,7 +1231,7 @@ void CameraAravisNodelet::newBufferReady(ArvStream *p_stream, CameraAravisNodele
 
       p_can->cam_pubs_[stream_id].publish(msg_ptr, p_can->camera_infos_[stream_id]);
 
-      if (p_can->extended_camera_info_) {
+      if (p_can->pub_ext_camera_info_) {
         ExtendedCameraInfo extended_camera_info_msg;
         p_can->extended_camera_info_mutex_.lock();
         arv_camera_gv_select_stream_channel(p_can->p_camera_, stream_id);

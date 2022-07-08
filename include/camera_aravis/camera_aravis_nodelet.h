@@ -90,7 +90,7 @@ private:
   bool verbose_ = false;
   std::string guid_ = "";
   bool use_ptp_stamp_ = false;
-  bool extended_camera_info_ = false;
+  bool pub_ext_camera_info_ = false;
   bool pub_tf_optical_ = false;
 
   ArvCamera *p_camera_ = NULL;
