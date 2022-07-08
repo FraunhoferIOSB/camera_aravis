@@ -2,9 +2,9 @@ name: build
 
 on:
   push:
-    branches: [ master, noetic-devel ] #  when master or noetic-devel branch is pushed to
+    branches: [ main, noetic-devel ] #  when main or noetic-devel branch is pushed to
   pull_request:
-    branches: [ master ] # when there is a pull request against master
+    branches: [ main ] # when there is a pull request against main
 
 jobs:
   industrial_ci:
