@@ -94,11 +94,29 @@ void CameraAravisNodelet::onInit()
 {
   ros::NodeHandle pnh = getPrivateNodeHandle();
 
+  // Retrieve ros parameters
   verbose_ = pnh.param<bool>("verbose", verbose_);
   guid_ = pnh.param<std::string>("guid", guid_); // Get the camera guid as a parameter or use the first device.
   use_ptp_stamp_ = pnh.param<bool>("use_ptp_timestamp", use_ptp_stamp_);
   pub_ext_camera_info_ = pnh.param<bool>("ExtendedCameraInfo", pub_ext_camera_info_); // publish an extended camera info message
   pub_tf_optical_ = pnh.param<bool>("publish_tf", pub_tf_optical_); // should we publish tf transforms to camera optical frame?
+
+  std::string stream_channel_args;
+  if (pnh.getParam("channel_names", stream_channel_args)) {
+    parseStringArgs(stream_channel_args, stream_names_);
+  } else {
+    stream_names_ = { "" };
+  }
+
+  std::string pixel_format_args;
+  std::vector<std::string> pixel_formats;
+  pnh.param("PixelFormat", pixel_format_args, pixel_format_args);
+  parseStringArgs(pixel_format_args, pixel_formats);
+
+  std::string calib_url_args;
+  std::vector<std::string> calib_urls;
+  pnh.param("camera_info_url", calib_url_args, calib_url_args);
+  parseStringArgs(calib_url_args, calib_urls);
 
   // Print out some useful info.
   ROS_INFO("Attached cameras:");
@@ -159,23 +177,6 @@ void CameraAravisNodelet::onInit()
   }
 
   ROS_INFO("Number of supported stream channels %i.", (int) num_streams_);
-
-  std::string stream_channel_args;
-  if (pnh.getParam("channel_names", stream_channel_args)) {
-    parseStringArgs(stream_channel_args, stream_names_);
-  } else {
-    stream_names_ = { "" };
-  }
-
-  std::string pixel_format_args;
-  std::vector<std::string> pixel_formats;
-  pnh.param("PixelFormat", pixel_format_args, pixel_format_args);
-  parseStringArgs(pixel_format_args, pixel_formats);
-
-  std::string calib_url_args;
-  std::vector<std::string> calib_urls;
-  pnh.param("camera_info_url", calib_url_args, calib_url_args);
-  parseStringArgs(calib_url_args, calib_urls);
 
   // check if every stream channel has been given a channel name
   if (stream_names_.size() < num_streams_) {
