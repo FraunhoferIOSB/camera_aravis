@@ -88,19 +88,24 @@ public:
 
 private:
   bool verbose_ = false;
+  std::string guid_ = "";
+  bool use_ptp_stamp_ = false;
+  bool pub_ext_camera_info_ = false;
+  bool pub_tf_optical_ = false;
 
   ArvCamera *p_camera_ = NULL;
   ArvDevice *p_device_ = NULL;
+
   gint num_streams_ = 0;
   std::vector<ArvStream *> p_streams_;
   std::vector<std::string> stream_names_;
-  bool extended_camera_info_;
   std::vector<CameraBufferPool::Ptr> p_buffer_pools_;
   int32_t acquire_ = 0;
   std::vector<ConversionFunction> convert_formats;
 
   virtual void onInit() override;
   void spawnStream();
+
 
 protected:
   // reset PTP clock
@@ -201,7 +206,6 @@ protected:
   Config config_;
   Config config_min_;
   Config config_max_;
-  bool   use_ptp_stamp_;
 
   std::atomic<bool> spawning_;
   std::thread       spawn_stream_thread_;
