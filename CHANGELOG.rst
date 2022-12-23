@@ -2,8 +2,8 @@
 Changelog for package camera_aravis
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+4.0.4 (2022-12-23)
+------------------
 * Update package maintainer
 * Refactor node params (`#21 <https://github.com/FraunhoferIOSB/camera_aravis/issues/21>`_)
   * Refactor node params
