@@ -94,7 +94,29 @@ void CameraAravisNodelet::onInit()
 {
   ros::NodeHandle pnh = getPrivateNodeHandle();
 
-  verbose_ = pnh.param("verbose", verbose_);
+  // Retrieve ros parameters
+  verbose_ = pnh.param<bool>("verbose", verbose_);
+  guid_ = pnh.param<std::string>("guid", guid_); // Get the camera guid as a parameter or use the first device.
+  use_ptp_stamp_ = pnh.param<bool>("use_ptp_timestamp", use_ptp_stamp_);
+  pub_ext_camera_info_ = pnh.param<bool>("ExtendedCameraInfo", pub_ext_camera_info_); // publish an extended camera info message
+  pub_tf_optical_ = pnh.param<bool>("publish_tf", pub_tf_optical_); // should we publish tf transforms to camera optical frame?
+
+  std::string stream_channel_args;
+  if (pnh.getParam("channel_names", stream_channel_args)) {
+    parseStringArgs(stream_channel_args, stream_names_);
+  } else {
+    stream_names_ = { "" };
+  }
+
+  std::string pixel_format_args;
+  std::vector<std::string> pixel_formats;
+  pnh.param("PixelFormat", pixel_format_args, pixel_format_args);
+  parseStringArgs(pixel_format_args, pixel_formats);
+
+  std::string calib_url_args;
+  std::vector<std::string> calib_urls;
+  pnh.param("camera_info_url", calib_url_args, calib_url_args);
+  parseStringArgs(calib_url_args, calib_urls);
 
   // Print out some useful info.
   ROS_INFO("Attached cameras:");
@@ -113,28 +135,18 @@ void CameraAravisNodelet::onInit()
     return;
   }
 
-  // Get the camera guid as a parameter or use the first device.
-  std::string guid;
-  if (pnh.hasParam("guid"))
-  {
-    pnh.getParam("guid", guid);
-  }
-
-  // Get PTP timestamp parameter
-  pnh.param<bool>("use_ptp_timestamp", use_ptp_stamp_, false);
-
   // Open the camera, and set it up.
   while (!p_camera_)
   {
-    if (guid.empty())
+    if (guid_.empty())
     {
       ROS_INFO("Opening: (any)");
       p_camera_ = arv_camera_new(NULL);
     }
     else
     {
-      ROS_INFO_STREAM("Opening: " << guid);
-      p_camera_ = arv_camera_new(guid.c_str());
+      ROS_INFO_STREAM("Opening: " << guid_);
+      p_camera_ = arv_camera_new(guid_.c_str());
     }
     ros::Duration(1.0).sleep();
   }
@@ -165,23 +177,6 @@ void CameraAravisNodelet::onInit()
   }
 
   ROS_INFO("Number of supported stream channels %i.", (int) num_streams_);
-
-  std::string stream_channel_args;
-  if (pnh.getParam("channel_names", stream_channel_args)) {
-    parseStringArgs(stream_channel_args, stream_names_);
-  } else {
-    stream_names_ = { "" };
-  }
-
-  std::string pixel_format_args;
-  std::vector<std::string> pixel_formats;
-  pnh.param("PixelFormat", pixel_format_args, pixel_format_args);
-  parseStringArgs(pixel_format_args, pixel_formats);
-
-  std::string calib_url_args;
-  std::vector<std::string> calib_urls;
-  pnh.param("camera_info_url", calib_url_args, calib_url_args);
-  parseStringArgs(calib_url_args, calib_urls);
 
   // check if every stream channel has been given a channel name
   if (stream_names_.size() < num_streams_) {
@@ -302,13 +297,7 @@ void CameraAravisNodelet::onInit()
   setAutoMaster(config_.AutoMaster);
   setAutoSlave(config_.AutoSlave);
 
-  // publish an extended camera info message
-  pnh.param<bool>("ExtendedCameraInfo", extended_camera_info_, false);
-
-  // should we publish tf transforms to camera optical frame?
-  bool pub_tf_optical;
-  pnh.param<bool>("publish_tf", pub_tf_optical, false);
-  if (pub_tf_optical)
+  if (pub_tf_optical_)
   {
     tf_optical_.header.frame_id = config_.frame_id;
     tf_optical_.child_frame_id = config_.frame_id + "_optical";
@@ -457,11 +446,6 @@ void CameraAravisNodelet::spawnStream()
 {
   ros::NodeHandle nh  = getNodeHandle();
   ros::NodeHandle pnh = getPrivateNodeHandle();
-  std::string guid;
-  if (pnh.hasParam("guid"))
-  {
-    pnh.getParam("guid", guid);
-  }
 
   for(int i = 0; i < num_streams_; i++) {
     while (spawning_) {
@@ -484,7 +468,7 @@ void CameraAravisNodelet::spawnStream()
       }
       else
       {
-        ROS_WARN("Stream %i: Could not create image stream for %s.  Retrying...", i, guid.c_str());
+        ROS_WARN("Stream %i: Could not create image stream for %s.  Retrying...", i, guid_.c_str());
         ros::Duration(1.0).sleep();
         ros::spinOnce();
       }
@@ -628,13 +612,15 @@ bool CameraAravisNodelet::setBooleanFeatureCallback(camera_aravis::set_boolean_f
 
 void CameraAravisNodelet::resetPtpClock()
 {
+  // a PTP slave can take the following states: Slave, Listening, Uncalibrated, Faulty, Disabled
   std::string ptp_status(arv_device_get_string_feature_value(p_device_, "GevIEEE1588Status"));
-  if (ptp_status != std::string("Slave"))
+  if (ptp_status == std::string("Faulty") || ptp_status == std::string("Disabled"))
   {
-    ROS_INFO("camera_aravis: Reset ptp clock");
+    ROS_INFO("camera_aravis: Reset ptp clock (was set to %s)", ptp_status.c_str());
     arv_device_set_boolean_feature_value(p_device_, "GevIEEE1588", false);
     arv_device_set_boolean_feature_value(p_device_, "GevIEEE1588", true);
   }
+  
 }
 
 void CameraAravisNodelet::cameraAutoInfoCallback(const CameraAutoInfoConstPtr &msg_ptr)
@@ -869,7 +855,7 @@ void CameraAravisNodelet::setAutoSlave(bool value)
 
 void CameraAravisNodelet::setExtendedCameraInfo(std::string channel_name, size_t stream_id)
 {
-  if (extended_camera_info_)
+  if (pub_ext_camera_info_)
   {
     if (channel_name.empty()) {
       extended_camera_info_pubs_[stream_id]  = getNodeHandle().advertise<ExtendedCameraInfo>(ros::names::remap("extended_camera_info"), 1, true);
@@ -1248,7 +1234,7 @@ void CameraAravisNodelet::newBufferReady(ArvStream *p_stream, CameraAravisNodele
 
       p_can->cam_pubs_[stream_id].publish(msg_ptr, p_can->camera_infos_[stream_id]);
 
-      if (p_can->extended_camera_info_) {
+      if (p_can->pub_ext_camera_info_) {
         ExtendedCameraInfo extended_camera_info_msg;
         p_can->extended_camera_info_mutex_.lock();
         arv_camera_gv_select_stream_channel(p_can->p_camera_, stream_id);
