@@ -2,6 +2,17 @@
 Changelog for package camera_aravis
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Update package maintainer
+* Refactor node params (`#21 <https://github.com/FraunhoferIOSB/camera_aravis/issues/21>`_)
+  * Refactor node params
+  * Rename extended_camera_info\_ -> pub_ext_camera_info\_
+  * Move stream parameters to the top of onInit()
+* fix: only reset PTP clock when in "Faulty" or "Disabled" state (`#23 <https://github.com/FraunhoferIOSB/camera_aravis/issues/23>`_)
+* Update industrial_ci default branch to main
+* Contributors: Dominik Kleiser, Peter Mortimer, Ruf, Boitumelo
+
 4.0.3 (2022-07-08)
 ------------------
 * Refactor image conversion (`#20 <https://github.com/FraunhoferIOSB/camera_aravis/issues/20>`_)
