@@ -4,8 +4,9 @@
   <version>4.0.0</version>
   <description>camera_aravis: A complete and comfortable GenICam (USB3Vision and GigEVision) based camera driver for ROS (ethernet and usb).</description>
 
-  <maintainer email="dominik.kleiser@iosb.fraunhofer.de">Dominik Kleiser, Fraunhofer IOSB</maintainer>
-
+  <maintainer email="boitumelo.ruf@iosb.fraunhofer.de">Boitumelo Ruf, Fraunhofer IOSB</maintainer>
+  
+  <author email="boitumelo.ruf@iosb.fraunhofer.de">Boitumelo Ruf, Fraunhofer IOSB</author>
   <author email="dominik.kleiser@iosb.fraunhofer.de">Dominik Kleiser, Fraunhofer IOSB</author>
   <author email="dominik.klein@fkie.fraunhofer.de">Dominik A. Klein, Fraunhofer FKIE</author>
   <author email="stevesafarik@gmail.com">Steve Safarik, Straw Lab</author>
