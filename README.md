@@ -104,4 +104,19 @@ The solution is to start with a base of ROS time, and to accumulate the dt's fro
 To accomodate the difference in clock rates, a PID controller gently pulls the result toward
 ROS time.
 
+## Known Issues
+
+### Slow read of white balance and black level values
+
+From [PR#22](https://github.com/FraunhoferIOSB/camera_aravis/pull/22): The white balance and black 
+level values of some cameras (e.g. Basler acA2440-20gc & JAI FS-3200D-10GE ) can be read more 
+efficiently by reading from the exact memory locations of the camera instead of using the Selector 
+features.
+
+However, since we are not sure on how stable these optimizations based on exact memory locations are 
+in terms of firmware updates and how well they generalize to other camera models, we have refrained 
+from merging the pull request into the main repository.
+
+For more information and details on the implementation, please look into the changes and the 
+comments inside the pull request.
 
