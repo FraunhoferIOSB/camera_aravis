@@ -23,6 +23,8 @@
 
 #include <camera_aravis/camera_aravis_nodelet.h>
 
+#include <thread>
+
 #include <pluginlib/class_list_macros.h>
 PLUGINLIB_EXPORT_CLASS(camera_aravis::CameraAravisNodelet, nodelet::Nodelet)
 
@@ -246,6 +248,8 @@ void CameraAravisNodelet::onInit()
     // possibly set or override from given parameter
     writeCameraFeaturesFromRosparam();
   }
+
+  ros::Duration(2.0).sleep();
 
   // get current state of camera for config_
   arv_camera_get_region(p_camera_, &roi_.x, &roi_.y, &roi_.width, &roi_.height);
@@ -1529,7 +1533,7 @@ void CameraAravisNodelet::writeCameraFeaturesFromRosparam()
           case XmlRpc::XmlRpcValue::TypeInt: //if ((iter->second.getType()==XmlRpc::XmlRpcValue::TypeInt))// && (typeValue==G_TYPE_INT64))
           {
             int value = (int)iter->second;
-            arv_device_set_integer_feature_value(p_device_, key.c_str(), value);
+                        arv_device_set_integer_feature_value(p_device_, key.c_str(), value);
             ROS_INFO("Read parameter (int) %s: %d", key.c_str(), value);
           }
             break;
@@ -1537,7 +1541,7 @@ void CameraAravisNodelet::writeCameraFeaturesFromRosparam()
           case XmlRpc::XmlRpcValue::TypeDouble: //if ((iter->second.getType()==XmlRpc::XmlRpcValue::TypeDouble))// && (typeValue==G_TYPE_DOUBLE))
           {
             double value = (double)iter->second;
-            arv_device_set_float_feature_value(p_device_, key.c_str(), value);
+                        arv_device_set_float_feature_value(p_device_, key.c_str(), value);
             ROS_INFO("Read parameter (float) %s: %f", key.c_str(), value);
           }
             break;
@@ -1545,7 +1549,7 @@ void CameraAravisNodelet::writeCameraFeaturesFromRosparam()
           case XmlRpc::XmlRpcValue::TypeString: //if ((iter->second.getType()==XmlRpc::XmlRpcValue::TypeString))// && (typeValue==G_TYPE_STRING))
           {
             std::string value = (std::string)iter->second;
-            arv_device_set_string_feature_value(p_device_, key.c_str(), value.c_str());
+                        arv_device_set_string_feature_value(p_device_, key.c_str(), value.c_str());
             ROS_INFO("Read parameter (string) %s: %s", key.c_str(), value.c_str());
           }
             break;
