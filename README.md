@@ -127,6 +127,32 @@ be executed after the parameters above are set.
 	- Type: ```string```
 	- Default: ```""```
 
+## Publishing camera diagnostics / status
+
+Camera_aravis allows to periodically monitor custom camera features and publish them in a designated
+topic named ```~/diagnostics``` in a message type as specified in 
+[CameraDiagnostics.msg](msg/CameraDiagnostics.msg). In order to configure and customize this 
+status monitoring, two launch parameters are provided:
+
+- ```diagnostic_publish_rate```: Rate at which to read and publish the diagnostic data.
+	- Type: ```double```
+	- Default: ```0.1``` (10 seconds)
+- ```diagnostic_yaml_url```: URL to yaml file specifying the camera features which are to be 
+monitored. If left empty (as default) no diagnostic features will be read and published.
+	- Type: ```string```
+	- Default: ```""```
+
+An example of such a diagnostic yaml file is given in 
+[camera_diagnostics.yaml](launch/camera_diagnostics.yaml). This file should hold a list of 
+```FeatureName``` together with a corresponding ```Type``` (bool, float, int, or string) for each
+feature which is to be monitored. If a feature is associated with a feature selector, one can 
+additionally specify a list of ```Selectors```. Each entry in this list should again have a 
+```FeatureName``` and ```Type```, as well as a ```Value``` to set.
+
+For each feature a key-value pair is constructed and published in the ```data``` field of the 
+message stated above. If a feature as a list of selectors, one key-value pair is constructed for
+each Feature-Selector pair.
+
 ## Known Issues
 
 ### Slow read of white balance and black level values

@@ -30,6 +30,8 @@
       <param name="camera_info_url"      value="$(arg camera_info_url)"/>
       <param name="frame_id"             value="$(arg sensor_name)"/>
 
+      <param name="diagnostic_yaml_url"	 value="camera_diagnostics.yaml"/>
+
       <!-- use GenICam SFNC names as stream control parameters -->
       <param name="PixelFormat"          value="$(arg pixel_format)"/>
       <param name="Width"                value="$(arg width)"/>

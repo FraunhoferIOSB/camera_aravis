@@ -61,6 +61,12 @@ CameraAravisNodelet::~CameraAravisNodelet()
     tf_dyn_thread_.join();
   }
 
+  diagnostic_thread_active_ = false;
+  if (diagnostic_thread_.joinable())
+  {
+    diagnostic_thread_.join();
+  }
+
 
   for(int i=0; i < p_streams_.size(); i++) {
     guint64 n_completed_buffers = 0;
@@ -124,6 +130,10 @@ void CameraAravisNodelet::onInit()
   std::vector<std::string> calib_urls;
   pnh.param("camera_info_url", calib_url_args, calib_url_args);
   parseStringArgs(calib_url_args, calib_urls);
+
+  diagnostic_yaml_url_ = pnh.param<std::string>("diagnostic_yaml_url", diagnostic_yaml_url_);
+  diagnostic_publish_rate_ = 
+    std::max(0.0, pnh.param<double>("diagnostic_publish_rate", 0.1));
 
   // Print out some useful info.
   ROS_INFO("Attached cameras:");
@@ -333,6 +343,45 @@ void CameraAravisNodelet::onInit()
       tf_optical_.header.stamp = ros::Time::now();
       p_stb_->sendTransform(tf_optical_);
     }
+  }
+
+  // read diagnostic features from yaml file and initialize publishing thread
+  if(!diagnostic_yaml_url_.empty() && diagnostic_publish_rate_ > 0.0)
+  {
+    try
+    {
+      diagnostic_features_ = YAML::LoadFile(diagnostic_yaml_url_);
+    }
+    catch(const YAML::BadFile& e)
+    {
+      ROS_WARN("YAML file cannot be loaded: %s", e.what());
+      ROS_WARN("Camera diagnostics will not be published.");
+    }
+    catch(const YAML::ParserException& e)
+    {
+      ROS_WARN("YAML file is malformed: %s", e.what());
+      ROS_WARN("Camera diagnostics will not be published.");
+    }
+
+    if(diagnostic_features_.size() > 0)
+    {
+      diagnostic_pub_ = getNodeHandle().advertise<CameraDiagnostics>(
+        ros::names::remap(this->getName() + "/diagnostics"), 1, true);
+
+      diagnostic_thread_active_ = true;
+      diagnostic_thread_ = std::thread(&CameraAravisNodelet::readAndPublishCameraDiagnostics, this, 
+                                       diagnostic_publish_rate_);
+    }
+    else
+    {
+      ROS_WARN("No diagnostic features specified.");
+      ROS_WARN("Camera diagnostics will not be published.");
+    }
+  }
+  else if(!diagnostic_yaml_url_.empty() && diagnostic_publish_rate_ <= 0.0)
+  {
+    ROS_WARN("diagnostic_publish_rate is <= 0.0");
+    ROS_WARN("Camera diagnostics will not be published.");
   }
 
   // default calibration url is [DeviceSerialNumber/DeviceID].yaml
@@ -1439,6 +1488,154 @@ void CameraAravisNodelet::publishTfLoop(double rate)
 
     loop_rate.sleep();
   }
+}
+
+void CameraAravisNodelet::readAndPublishCameraDiagnostics(double rate) const
+{
+  ROS_INFO("Publishing camera diagnostics at %g Hz", rate);
+
+  ros::Rate loop_rate(rate);
+
+  CameraDiagnostics camDiagnosticMsg;
+  camDiagnosticMsg.header.frame_id = config_.frame_id;
+
+  // function to get feature value at given name and of given type as string
+  auto getFeatureValueAsStrFn = [&](const std::string &name, const std::string &type) 
+    -> std::string
+  {
+    std::string valueStr = "";
+
+    if(type == "float")
+      valueStr = std::to_string(arv_device_get_float_feature_value(p_device_, name.c_str()));
+    else if (type == "int")
+      valueStr = std::to_string(arv_device_get_integer_feature_value(p_device_, name.c_str()));
+    else if (type == "bool")
+      valueStr = arv_device_get_boolean_feature_value(p_device_, name.c_str()) ? "true" : "false";
+    else 
+      valueStr = arv_device_get_string_feature_value(p_device_, name.c_str());
+
+    return valueStr;
+  };
+
+  // function to set feature value at given name and of given type from string
+  auto setFeatureValueFromStrFn = [&](const std::string &name, const std::string &type, 
+                                    const std::string &valueStr) 
+  {
+    if(type == "float")
+      arv_device_set_float_feature_value(p_device_, name.c_str(), std::stod(valueStr));
+    else if (type == "int")
+      arv_device_set_integer_feature_value(p_device_, name.c_str(), std::stoi(valueStr));
+    else if (type == "bool")
+      arv_device_set_boolean_feature_value(p_device_, name.c_str(), 
+        (valueStr == "true" || valueStr == "True" || valueStr == "TRUE"));
+    else 
+      arv_device_set_string_feature_value(p_device_, name.c_str(), valueStr.c_str());
+  };
+
+  while (ros::ok() && diagnostic_thread_active_)
+  {
+    camDiagnosticMsg.header.stamp = ros::Time::now();
+    ++camDiagnosticMsg.header.seq;
+
+    camDiagnosticMsg.data.clear();
+
+    int featureIdx = 1;
+    for (auto featureDict : diagnostic_features_) {
+      std::string featureName = featureDict["FeatureName"].IsDefined() 
+                                ? featureDict["FeatureName"].as<std::string>()
+                                : "";
+      std::string featureType = featureDict["Type"].IsDefined() 
+                                ? featureDict["Type"].as<std::string>()
+                                : "";
+
+      if(featureName.empty() || featureType.empty())
+      {
+        ROS_WARN_ONCE(
+          "Diagnostic feature at index %i does not have a field 'FeatureName' or 'Type'.",
+          featureIdx);
+        ROS_WARN_ONCE("Diagnostic feature will be skipped.");
+      }
+      else
+      {
+        // convert type string to lower case
+        std::transform(featureType.begin(), featureType.end(), featureType.begin(),
+          [](unsigned char c){ return std::tolower(c); });
+
+        // if feature name is found in implemented_feature list and if enabled
+        if (implemented_features_.find(featureName) != implemented_features_.end() &&
+            implemented_features_.at(featureName))
+        {
+          diagnostic_msgs::KeyValue kvPair;
+
+          // if 'selectors' which correspond to the featureName are defined
+          if(featureDict["Selectors"].IsDefined() && featureDict["Selectors"].size() > 0)
+          {
+            int selectorIdx = 1;
+            for(auto selectorDict : featureDict["Selectors"])
+            {
+              std::string selectorFeatureName = selectorDict["FeatureName"].IsDefined() 
+                                                ? selectorDict["FeatureName"].as<std::string>()
+                                                : "";
+              std::string selectorType = selectorDict["Type"].IsDefined() 
+                                         ? selectorDict["Type"].as<std::string>()
+                                         : "";
+              std::string selectorValue = selectorDict["Value"].IsDefined() 
+                                          ? selectorDict["Value"].as<std::string>()
+                                          : "";
+
+              if(selectorFeatureName.empty() || selectorType.empty() || selectorValue.empty())
+              {
+                ROS_WARN_ONCE(
+                  "Diagnostic feature selector at index %i of feature at index %i does not have a "
+                  "field 'FeatureName', 'Type' or 'Value'.",
+                  selectorIdx, featureIdx);
+                ROS_WARN_ONCE("Diagnostic feature will be skipped.");
+              }
+              else
+              {
+                if (implemented_features_.find(selectorFeatureName) != implemented_features_.end() &&
+                    implemented_features_.at(selectorFeatureName))
+                {
+                  setFeatureValueFromStrFn(selectorFeatureName, selectorType, selectorValue);
+
+                  kvPair.key = featureName + "-" + selectorValue;
+                  kvPair.value = getFeatureValueAsStrFn(featureName, featureType);
+
+                  camDiagnosticMsg.data.push_back(diagnostic_msgs::KeyValue(kvPair));
+                }
+                else
+                {
+                  ROS_WARN_ONCE("Diagnostic feature selector with name '%s' is not implemented.", 
+                                selectorFeatureName.c_str());
+                }
+
+                selectorIdx++;
+              }
+            }
+          }
+          else
+          {
+            kvPair.key = featureName;
+            kvPair.value = getFeatureValueAsStrFn(featureName, featureType);
+
+            camDiagnosticMsg.data.push_back(diagnostic_msgs::KeyValue(kvPair));
+          }
+        }
+        else
+        {
+          ROS_WARN_ONCE("Diagnostic feature with name '%s' is not implemented.", 
+          featureName.c_str());
+        }
+      }
+
+      featureIdx++;
+    }
+
+    diagnostic_pub_.publish(camDiagnosticMsg);
+
+    loop_rate.sleep();
+  }
+
 }
 
 void CameraAravisNodelet::discoverFeatures()
