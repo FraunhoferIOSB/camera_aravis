@@ -643,7 +643,8 @@ void CameraAravisNodelet::resetPtpClock()
     arv_device_get_string_feature_value(p_device_, ptp_status_feature_.c_str());
   if (ptp_status_str == std::string("Faulty") || 
       ptp_status_str == std::string("Disabled") || 
-      ptp_status_str == std::string("Initializing"))
+      ptp_status_str == std::string("Initializing") ||
+      ! arv_device_get_boolean_feature_value(p_device_, ptp_enable_feature_.c_str()));
   {
     ROS_INFO("Resetting ptp clock (was set to %s)", ptp_status_str.c_str());
 
