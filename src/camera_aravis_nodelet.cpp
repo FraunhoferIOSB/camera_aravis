@@ -25,6 +25,8 @@
 
 #include <thread>
 
+#include <fstream>
+
 #include <pluginlib/class_list_macros.h>
 PLUGINLIB_EXPORT_CLASS(camera_aravis::CameraAravisNodelet, nodelet::Nodelet)
 
@@ -175,6 +177,13 @@ void CameraAravisNodelet::onInit()
   const char* device_sn = arv_device_get_string_feature_value(p_device_, "DeviceSerialNumber");
   ROS_INFO("Successfully Opened: %s-%s-%s", vendor_name, model_name, 
            (device_sn) ? device_sn : device_id);
+
+  size_t xmlSize = 0;
+  const char* p_xmldata = arv_device_get_genicam_xml(p_device_, &xmlSize);
+  std::ofstream fout;
+  fout.open("/home/boi87908/Desktop/camera_aravis_genicam.xml", std::ios::binary | std::ios::out);
+  fout.write(p_xmldata, xmlSize);
+  fout.close();
 
   // Start the dynamic_reconfigure server.
   reconfigure_server_.reset(new dynamic_reconfigure::Server<Config>(reconfigure_mutex_, pnh));
