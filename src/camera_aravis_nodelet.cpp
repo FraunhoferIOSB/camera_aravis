@@ -169,8 +169,12 @@ void CameraAravisNodelet::onInit()
   }
 
   p_device_ = arv_camera_get_device(p_camera_);
-  ROS_INFO("Opened: %s-%s", arv_camera_get_vendor_name(p_camera_),
-           arv_device_get_string_feature_value(p_device_, "DeviceSerialNumber"));
+  const char* vendor_name = arv_camera_get_vendor_name(p_camera_);
+  const char* model_name  = arv_camera_get_model_name(p_camera_);
+  const char* device_id = arv_camera_get_device_id(p_camera_);
+  const char* device_sn = arv_device_get_string_feature_value(p_device_, "DeviceSerialNumber");
+  ROS_INFO("Successfully Opened: %s-%s-%s", vendor_name, model_name, 
+           (device_sn) ? device_sn : device_id);
 
   // Start the dynamic_reconfigure server.
   reconfigure_server_.reset(new dynamic_reconfigure::Server<Config>(reconfigure_mutex_, pnh));
