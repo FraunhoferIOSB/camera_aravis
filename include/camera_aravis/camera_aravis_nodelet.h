@@ -89,7 +89,12 @@ public:
 private:
   bool verbose_ = false;
   std::string guid_ = "";
+
   bool use_ptp_stamp_ = false;
+  std::string ptp_enable_feature_ = "GevIEEE1588";
+  std::string ptp_status_feature_ = "GevIEEE1588Status";
+  std::string ptp_set_cmd_feature_ = "";
+ 
   bool pub_ext_camera_info_ = false;
   bool pub_tf_optical_ = false;
 

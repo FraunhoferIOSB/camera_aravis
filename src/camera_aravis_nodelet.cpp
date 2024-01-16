@@ -99,7 +99,12 @@ void CameraAravisNodelet::onInit()
   // Retrieve ros parameters
   verbose_ = pnh.param<bool>("verbose", verbose_);
   guid_ = pnh.param<std::string>("guid", guid_); // Get the camera guid as a parameter or use the first device.
+  
   use_ptp_stamp_ = pnh.param<bool>("use_ptp_timestamp", use_ptp_stamp_);
+  ptp_enable_feature_ = pnh.param<std::string>("ptp_enable_feature_name", ptp_enable_feature_);
+  ptp_status_feature_ = pnh.param<std::string>("ptp_status_feature_name", ptp_status_feature_);
+  ptp_set_cmd_feature_ = pnh.param<std::string>("ptp_set_cmd_feature_name", ptp_set_cmd_feature_);
+  
   pub_ext_camera_info_ = pnh.param<bool>("ExtendedCameraInfo", pub_ext_camera_info_); // publish an extended camera info message
   pub_tf_optical_ = pnh.param<bool>("publish_tf", pub_tf_optical_); // should we publish tf transforms to camera optical frame?
 
@@ -616,13 +621,43 @@ bool CameraAravisNodelet::setBooleanFeatureCallback(camera_aravis::set_boolean_f
 
 void CameraAravisNodelet::resetPtpClock()
 {
-  // a PTP slave can take the following states: Slave, Listening, Uncalibrated, Faulty, Disabled
-  std::string ptp_status(arv_device_get_string_feature_value(p_device_, "GevIEEE1588Status"));
-  if (ptp_status == std::string("Faulty") || ptp_status == std::string("Disabled"))
+  if(ptp_status_feature_.empty() || ptp_enable_feature_.empty())
   {
-    ROS_INFO("camera_aravis: Reset ptp clock (was set to %s)", ptp_status.c_str());
-    arv_device_set_boolean_feature_value(p_device_, "GevIEEE1588", false);
-    arv_device_set_boolean_feature_value(p_device_, "GevIEEE1588", true);
+    ROS_WARN("PTP Error: ptp_status_feature_name and/or ptp_enable_feature_name are empty.");
+    return;
+  }
+  
+  if(!implemented_features_[ptp_status_feature_] || !implemented_features_[ptp_enable_feature_])
+  {
+    if(!implemented_features_[ptp_status_feature_])
+      ROS_WARN("PTP Error: ptp_status_feature_name '%s' is not available on the device.", 
+             ptp_status_feature_.c_str());
+    if(!implemented_features_[ptp_enable_feature_])
+      ROS_WARN("PTP Error: ptp_enable_feature_name '%s' is not available on the device.", 
+             ptp_enable_feature_.c_str());
+    return;
+  }
+
+  // a PTP slave can take the following states: Slave, Listening, Uncalibrated, Faulty, Disabled
+  std::string ptp_status_str = 
+    arv_device_get_string_feature_value(p_device_, ptp_status_feature_.c_str());
+  if (ptp_status_str == std::string("Faulty") || 
+      ptp_status_str == std::string("Disabled") || 
+      ptp_status_str == std::string("Initializing"))
+  {
+    ROS_INFO("Resetting ptp clock (was set to %s)", ptp_status_str.c_str());
+
+    arv_device_set_boolean_feature_value(p_device_, ptp_enable_feature_.c_str(), false);
+    arv_device_set_boolean_feature_value(p_device_, ptp_enable_feature_.c_str(), true);
+
+    if(!ptp_set_cmd_feature_.empty())
+    {
+      if(implemented_features_[ptp_set_cmd_feature_])
+        arv_device_execute_command(p_device_, ptp_set_cmd_feature_.c_str());
+      else
+        ROS_WARN("PTP Error: ptp_set_cmd_feature_ '%s' is not available on the device.", 
+             ptp_set_cmd_feature_.c_str());
+    }
   }
   
 }
