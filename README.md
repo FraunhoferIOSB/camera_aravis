@@ -47,6 +47,10 @@ a variety of camera features via the ROS reconfigure_gui, including the followin
 * FocusPos             (integer)
 * mtu                  (integer)
 
+Note that if the camera parameters are to be initialized from the parameters from the dynamic
+reconfigure server, the launch parameter ```init_params_from_dyn_reconfigure``` needs to be set
+to ```true``` (Default: ```false```);
+
 Note that the above are also the ROS parameter names of their respective feature.  You may
 set initial values for the camera by setting ROS parameters in the camera's namespace.
 
@@ -101,7 +105,71 @@ with the ROS clock on the PC, and furthermore since it comes from a different pi
 the two clock's rates are slightly different.
 
 The solution is to start with a base of ROS time, and to accumulate the dt's from the camera clock.
-To accomodate the difference in clock rates, a PID controller gently pulls the result toward
+To accommodate the difference in clock rates, a PID controller gently pulls the result toward
 ROS time.
 
+### Activating PTP Timestamp
+
+Some cameras support the use of the Precision Time Protocol (PTP) to set the timestamps of the 
+captured images. To activate it using camera_aravis a couple of launch parameters are available:
+
+- ```use_ptp_timestamp```: General switch to activate the use of the PTP timestamp within
+camera_aravis. Set to ```true``` to activate.
+	- Type: ```bool```
+	- Default: ```false```
+- ```ptp_enable_feature_name```: Feature name on the camera device to enable the use of PTP.
+	- Type: ```string```
+	- Default: ```"GevIEEE1588"```
+- ```ptp_status_feature_name```: Feature name on the camera device to access the status of the PTP.
+This is needed to monitor, whether camera_aravis needs to reset the PTP clock.
+	- Type: ```string```
+	- Default: ```"GevIEEE1588Status"```
+- ```ptp_set_cmd_feature_name```: Feature name of the 'Set-Command' on the camera device for PTP. 
+On some cameras a 'set' or 'synchronization' command needs to be executed after setting the features
+above for the PTP to be activated. If this launch parameter is set, the corresponding command will
+be executed after the parameters above are set.
+	- Type: ```string```
+	- Default: ```""```
+
+## Publishing camera diagnostics / status
+
+Camera_aravis allows to periodically monitor custom camera features and publish them in a designated
+topic named ```~/diagnostics``` in a message type as specified in 
+[CameraDiagnostics.msg](msg/CameraDiagnostics.msg). In order to configure and customize this 
+status monitoring, two launch parameters are provided:
+
+- ```diagnostic_publish_rate```: Rate at which to read and publish the diagnostic data.
+	- Type: ```double```
+	- Default: ```0.1``` (10 seconds)
+- ```diagnostic_yaml_url```: URL to yaml file specifying the camera features which are to be 
+monitored. If left empty (as default) no diagnostic features will be read and published.
+	- Type: ```string```
+	- Default: ```""```
+
+An example of such a diagnostic yaml file is given in 
+[camera_diagnostics.yaml](launch/camera_diagnostics.yaml). This file should hold a list of 
+```FeatureName``` together with a corresponding ```Type``` (bool, float, int, or string) for each
+feature which is to be monitored. If a feature is associated with a feature selector, one can 
+additionally specify a list of ```Selectors```. Each entry in this list should again have a 
+```FeatureName``` and ```Type```, as well as a ```Value``` to set.
+
+For each feature a key-value pair is constructed and published in the ```data``` field of the 
+message stated above. If a feature as a list of selectors, one key-value pair is constructed for
+each Feature-Selector pair.
+
+## Known Issues
+
+### Slow read of white balance and black level values
+
+From [PR#22](https://github.com/FraunhoferIOSB/camera_aravis/pull/22): The white balance and black 
+level values of some cameras (e.g. Basler acA2440-20gc & JAI FS-3200D-10GE ) can be read more 
+efficiently by reading from the exact memory locations of the camera instead of using the Selector 
+features.
+
+However, since we are not sure on how stable these optimizations based on exact memory locations are 
+in terms of firmware updates and how well they generalize to other camera models, we have refrained 
+from merging the pull request into the main repository.
+
+For more information and details on the implementation, please look into the changes and the 
+comments inside the pull request.
 

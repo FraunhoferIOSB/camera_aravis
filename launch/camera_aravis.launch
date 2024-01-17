@@ -30,8 +30,7 @@
       <param name="camera_info_url"      value="$(arg camera_info_url)"/>
       <param name="frame_id"             value="$(arg sensor_name)"/>
 
-      <param name="publish_tf"           value="true"/>
-      <param name="tf_publish_rate"      value="$(arg fps)"/>
+      <param name="diagnostic_yaml_url"	 value="camera_diagnostics.yaml"/>
 
       <!-- use GenICam SFNC names as stream control parameters -->
       <param name="PixelFormat"          value="$(arg pixel_format)"/>
@@ -45,6 +44,12 @@
       <param name="ExposureAuto"         value="Continuous"/>
       <param name="GainAuto"             value="Continuous"/>
       <param name="BalanceWhiteAuto"     value="Continuous"/>
+
+      <param name="use_ptp_timestamp"           value="true"/>
+      <param name="ptp_enable_feature_name"     value="PtpEnable"/>
+      <param name="ptp_status_feature_name"     value="PtpStatus"/>
+      <param name="ptp_set_cmd_feature_name"    value="PtpDataSetLatch"/>
+      <param name="PtpOperationMode"		        value="Slave"/>
 
     </node>
 

@@ -19,6 +19,7 @@ find_package(catkin REQUIRED COMPONENTS
   nodelet
   std_msgs
   sensor_msgs
+  diagnostic_msgs
   message_generation
   image_transport
   camera_info_manager
@@ -28,12 +29,14 @@ find_package(catkin REQUIRED COMPONENTS
 )
 find_package(Aravis REQUIRED)
 find_package(GLIB2 REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
 generate_dynamic_reconfigure_options(cfg/CameraAravis.cfg)
 
 add_message_files(
    FILES
    CameraAutoInfo.msg
+   CameraDiagnostics.msg
    ExtendedCameraInfo.msg
 )
 
@@ -53,6 +56,7 @@ generate_messages(
    DEPENDENCIES
    std_msgs
    sensor_msgs
+   diagnostic_msgs
 )
 
 catkin_package(
@@ -66,7 +70,9 @@ include_directories(cfg
   include
   ${catkin_INCLUDE_DIRS}
   ${Aravis_INCLUDE_DIRS}
-  ${GLIB2_INCLUDE_DIRS})
+  ${GLIB2_INCLUDE_DIRS}
+  ${YAML_CPP_INCLUDE_DIRS}
+)
 
 set(LIBRARIES
   ${catkin_LIBRARIES}
@@ -74,6 +80,7 @@ set(LIBRARIES
   glib-2.0
   gmodule-2.0
   gobject-2.0
+  ${YAML_CPP_LIBRARY_DIRS}
 )
 
 add_library(${PROJECT_NAME}

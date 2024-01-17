@@ -23,6 +23,8 @@
 
 #include <camera_aravis/camera_aravis_nodelet.h>
 
+#include <thread>
+
 #include <pluginlib/class_list_macros.h>
 PLUGINLIB_EXPORT_CLASS(camera_aravis::CameraAravisNodelet, nodelet::Nodelet)
 
@@ -57,6 +59,12 @@ CameraAravisNodelet::~CameraAravisNodelet()
   if (tf_dyn_thread_.joinable())
   {
     tf_dyn_thread_.join();
+  }
+
+  diagnostic_thread_active_ = false;
+  if (diagnostic_thread_.joinable())
+  {
+    diagnostic_thread_.join();
   }
 
 
@@ -97,7 +105,14 @@ void CameraAravisNodelet::onInit()
   // Retrieve ros parameters
   verbose_ = pnh.param<bool>("verbose", verbose_);
   guid_ = pnh.param<std::string>("guid", guid_); // Get the camera guid as a parameter or use the first device.
+  
   use_ptp_stamp_ = pnh.param<bool>("use_ptp_timestamp", use_ptp_stamp_);
+  ptp_enable_feature_ = pnh.param<std::string>("ptp_enable_feature_name", ptp_enable_feature_);
+  ptp_status_feature_ = pnh.param<std::string>("ptp_status_feature_name", ptp_status_feature_);
+  ptp_set_cmd_feature_ = pnh.param<std::string>("ptp_set_cmd_feature_name", ptp_set_cmd_feature_);
+
+  bool init_params_from_reconfig = pnh.param<bool>("init_params_from_dyn_reconfigure", true);
+  
   pub_ext_camera_info_ = pnh.param<bool>("ExtendedCameraInfo", pub_ext_camera_info_); // publish an extended camera info message
   pub_tf_optical_ = pnh.param<bool>("publish_tf", pub_tf_optical_); // should we publish tf transforms to camera optical frame?
 
@@ -117,6 +132,10 @@ void CameraAravisNodelet::onInit()
   std::vector<std::string> calib_urls;
   pnh.param("camera_info_url", calib_url_args, calib_url_args);
   parseStringArgs(calib_url_args, calib_urls);
+
+  diagnostic_yaml_url_ = pnh.param<std::string>("diagnostic_yaml_url", diagnostic_yaml_url_);
+  diagnostic_publish_rate_ = 
+    std::max(0.0, pnh.param<double>("diagnostic_publish_rate", 0.1));
 
   // Print out some useful info.
   ROS_INFO("Attached cameras:");
@@ -152,8 +171,12 @@ void CameraAravisNodelet::onInit()
   }
 
   p_device_ = arv_camera_get_device(p_camera_);
-  ROS_INFO("Opened: %s-%s", arv_camera_get_vendor_name(p_camera_),
-           arv_device_get_string_feature_value(p_device_, "DeviceSerialNumber"));
+  const char* vendor_name = arv_camera_get_vendor_name(p_camera_);
+  const char* model_name  = arv_camera_get_model_name(p_camera_);
+  const char* device_id = arv_camera_get_device_id(p_camera_);
+  const char* device_sn = arv_device_get_string_feature_value(p_device_, "DeviceSerialNumber");
+  ROS_INFO("Successfully Opened: %s-%s-%s", vendor_name, model_name, 
+           (device_sn) ? device_sn : device_id);
 
   // Start the dynamic_reconfigure server.
   reconfigure_server_.reset(new dynamic_reconfigure::Server<Config>(reconfigure_mutex_, pnh));
@@ -221,31 +244,36 @@ void CameraAravisNodelet::onInit()
   for(int i = 0; i < num_streams_; i++) {
     arv_camera_gv_select_stream_channel(p_camera_,i);
 
-    // Initial camera settings.
-    if (implemented_features_["ExposureTime"])
-      arv_camera_set_exposure_time(p_camera_, config_.ExposureTime);
-    else if (implemented_features_["ExposureTimeAbs"])
-      arv_device_set_float_feature_value(p_device_, "ExposureTimeAbs", config_.ExposureTime);
-    if (implemented_features_["Gain"])
-      arv_camera_set_gain(p_camera_, config_.Gain);
-    if (implemented_features_["AcquisitionFrameRateEnable"])
-      arv_device_set_integer_feature_value(p_device_, "AcquisitionFrameRateEnable", 1);
-    if (implemented_features_["AcquisitionFrameRate"])
-      arv_camera_set_frame_rate(p_camera_, config_.AcquisitionFrameRate);
-
-    // init default to full sensor resolution
-    arv_camera_set_region (p_camera_, 0, 0, roi_.width_max, roi_.height_max);
-
-    // Set up the triggering.
-    if (implemented_features_["TriggerMode"] && implemented_features_["TriggerSelector"])
+    if(init_params_from_reconfig)
     {
-      arv_device_set_string_feature_value(p_device_, "TriggerSelector", "FrameStart");
-      arv_device_set_string_feature_value(p_device_, "TriggerMode", "Off");
+      // Initial camera settings.
+      if (implemented_features_["ExposureTime"])
+        arv_camera_set_exposure_time(p_camera_, config_.ExposureTime);
+      else if (implemented_features_["ExposureTimeAbs"])
+        arv_device_set_float_feature_value(p_device_, "ExposureTimeAbs", config_.ExposureTime);
+      if (implemented_features_["Gain"])
+        arv_camera_set_gain(p_camera_, config_.Gain);
+      if (implemented_features_["AcquisitionFrameRateEnable"])
+        arv_device_set_integer_feature_value(p_device_, "AcquisitionFrameRateEnable", 1);
+      if (implemented_features_["AcquisitionFrameRate"])
+        arv_camera_set_frame_rate(p_camera_, config_.AcquisitionFrameRate);
+
+      // init default to full sensor resolution
+      arv_camera_set_region (p_camera_, 0, 0, roi_.width_max, roi_.height_max);
+
+      // Set up the triggering.
+      if (implemented_features_["TriggerMode"] && implemented_features_["TriggerSelector"])
+      {
+        arv_device_set_string_feature_value(p_device_, "TriggerSelector", "FrameStart");
+        arv_device_set_string_feature_value(p_device_, "TriggerMode", "Off");
+      }
     }
 
     // possibly set or override from given parameter
     writeCameraFeaturesFromRosparam();
   }
+
+  ros::Duration(2.0).sleep();
 
   // get current state of camera for config_
   arv_camera_get_region(p_camera_, &roi_.x, &roi_.y, &roi_.width, &roi_.height);
@@ -324,6 +352,45 @@ void CameraAravisNodelet::onInit()
       tf_optical_.header.stamp = ros::Time::now();
       p_stb_->sendTransform(tf_optical_);
     }
+  }
+
+  // read diagnostic features from yaml file and initialize publishing thread
+  if(!diagnostic_yaml_url_.empty() && diagnostic_publish_rate_ > 0.0)
+  {
+    try
+    {
+      diagnostic_features_ = YAML::LoadFile(diagnostic_yaml_url_);
+    }
+    catch(const YAML::BadFile& e)
+    {
+      ROS_WARN("YAML file cannot be loaded: %s", e.what());
+      ROS_WARN("Camera diagnostics will not be published.");
+    }
+    catch(const YAML::ParserException& e)
+    {
+      ROS_WARN("YAML file is malformed: %s", e.what());
+      ROS_WARN("Camera diagnostics will not be published.");
+    }
+
+    if(diagnostic_features_.size() > 0)
+    {
+      diagnostic_pub_ = getNodeHandle().advertise<CameraDiagnostics>(
+        ros::names::remap(this->getName() + "/diagnostics"), 1, true);
+
+      diagnostic_thread_active_ = true;
+      diagnostic_thread_ = std::thread(&CameraAravisNodelet::readAndPublishCameraDiagnostics, this, 
+                                       diagnostic_publish_rate_);
+    }
+    else
+    {
+      ROS_WARN("No diagnostic features specified.");
+      ROS_WARN("Camera diagnostics will not be published.");
+    }
+  }
+  else if(!diagnostic_yaml_url_.empty() && diagnostic_publish_rate_ <= 0.0)
+  {
+    ROS_WARN("diagnostic_publish_rate is <= 0.0");
+    ROS_WARN("Camera diagnostics will not be published.");
   }
 
   // default calibration url is [DeviceSerialNumber/DeviceID].yaml
@@ -612,13 +679,45 @@ bool CameraAravisNodelet::setBooleanFeatureCallback(camera_aravis::set_boolean_f
 
 void CameraAravisNodelet::resetPtpClock()
 {
-  // a PTP slave can take the following states: Slave, Listening, Uncalibrated, Faulty, Disabled
-  std::string ptp_status(arv_device_get_string_feature_value(p_device_, "GevIEEE1588Status"));
-  if (ptp_status == std::string("Faulty") || ptp_status == std::string("Disabled"))
+  if(ptp_status_feature_.empty() || ptp_enable_feature_.empty())
   {
-    ROS_INFO("camera_aravis: Reset ptp clock (was set to %s)", ptp_status.c_str());
-    arv_device_set_boolean_feature_value(p_device_, "GevIEEE1588", false);
-    arv_device_set_boolean_feature_value(p_device_, "GevIEEE1588", true);
+    ROS_WARN("PTP Error: ptp_status_feature_name and/or ptp_enable_feature_name are empty.");
+    return;
+  }
+  
+  if(!implemented_features_[ptp_status_feature_] || !implemented_features_[ptp_enable_feature_])
+  {
+    if(!implemented_features_[ptp_status_feature_])
+      ROS_WARN("PTP Error: ptp_status_feature_name '%s' is not available on the device.", 
+             ptp_status_feature_.c_str());
+    if(!implemented_features_[ptp_enable_feature_])
+      ROS_WARN("PTP Error: ptp_enable_feature_name '%s' is not available on the device.", 
+             ptp_enable_feature_.c_str());
+    return;
+  }
+
+  // a PTP slave can take the following states: Slave, Listening, Uncalibrated, Faulty, Disabled
+  std::string ptp_status_str = 
+    arv_device_get_string_feature_value(p_device_, ptp_status_feature_.c_str());
+  bool ptp_is_enabled = arv_device_get_boolean_feature_value(p_device_, ptp_enable_feature_.c_str());
+  if (ptp_status_str == "Faulty" || 
+      ptp_status_str == "Disabled" || 
+      ptp_status_str == "Initializing" ||
+      !ptp_is_enabled)
+  {
+    ROS_INFO("Resetting ptp clock (was set to %s)", ptp_status_str.c_str());
+
+    arv_device_set_boolean_feature_value(p_device_, ptp_enable_feature_.c_str(), false);
+    arv_device_set_boolean_feature_value(p_device_, ptp_enable_feature_.c_str(), true);
+
+    if(!ptp_set_cmd_feature_.empty())
+    {
+      if(implemented_features_[ptp_set_cmd_feature_])
+        arv_device_execute_command(p_device_, ptp_set_cmd_feature_.c_str());
+      else
+        ROS_WARN("PTP Error: ptp_set_cmd_feature_ '%s' is not available on the device.", 
+             ptp_set_cmd_feature_.c_str());
+    }
   }
   
 }
@@ -1401,6 +1500,154 @@ void CameraAravisNodelet::publishTfLoop(double rate)
   }
 }
 
+void CameraAravisNodelet::readAndPublishCameraDiagnostics(double rate) const
+{
+  ROS_INFO("Publishing camera diagnostics at %g Hz", rate);
+
+  ros::Rate loop_rate(rate);
+
+  CameraDiagnostics camDiagnosticMsg;
+  camDiagnosticMsg.header.frame_id = config_.frame_id;
+
+  // function to get feature value at given name and of given type as string
+  auto getFeatureValueAsStrFn = [&](const std::string &name, const std::string &type) 
+    -> std::string
+  {
+    std::string valueStr = "";
+
+    if(type == "float")
+      valueStr = std::to_string(arv_device_get_float_feature_value(p_device_, name.c_str()));
+    else if (type == "int")
+      valueStr = std::to_string(arv_device_get_integer_feature_value(p_device_, name.c_str()));
+    else if (type == "bool")
+      valueStr = arv_device_get_boolean_feature_value(p_device_, name.c_str()) ? "true" : "false";
+    else 
+      valueStr = arv_device_get_string_feature_value(p_device_, name.c_str());
+
+    return valueStr;
+  };
+
+  // function to set feature value at given name and of given type from string
+  auto setFeatureValueFromStrFn = [&](const std::string &name, const std::string &type, 
+                                    const std::string &valueStr) 
+  {
+    if(type == "float")
+      arv_device_set_float_feature_value(p_device_, name.c_str(), std::stod(valueStr));
+    else if (type == "int")
+      arv_device_set_integer_feature_value(p_device_, name.c_str(), std::stoi(valueStr));
+    else if (type == "bool")
+      arv_device_set_boolean_feature_value(p_device_, name.c_str(), 
+        (valueStr == "true" || valueStr == "True" || valueStr == "TRUE"));
+    else 
+      arv_device_set_string_feature_value(p_device_, name.c_str(), valueStr.c_str());
+  };
+
+  while (ros::ok() && diagnostic_thread_active_)
+  {
+    camDiagnosticMsg.header.stamp = ros::Time::now();
+    ++camDiagnosticMsg.header.seq;
+
+    camDiagnosticMsg.data.clear();
+
+    int featureIdx = 1;
+    for (auto featureDict : diagnostic_features_) {
+      std::string featureName = featureDict["FeatureName"].IsDefined() 
+                                ? featureDict["FeatureName"].as<std::string>()
+                                : "";
+      std::string featureType = featureDict["Type"].IsDefined() 
+                                ? featureDict["Type"].as<std::string>()
+                                : "";
+
+      if(featureName.empty() || featureType.empty())
+      {
+        ROS_WARN_ONCE(
+          "Diagnostic feature at index %i does not have a field 'FeatureName' or 'Type'.",
+          featureIdx);
+        ROS_WARN_ONCE("Diagnostic feature will be skipped.");
+      }
+      else
+      {
+        // convert type string to lower case
+        std::transform(featureType.begin(), featureType.end(), featureType.begin(),
+          [](unsigned char c){ return std::tolower(c); });
+
+        // if feature name is found in implemented_feature list and if enabled
+        if (implemented_features_.find(featureName) != implemented_features_.end() &&
+            implemented_features_.at(featureName))
+        {
+          diagnostic_msgs::KeyValue kvPair;
+
+          // if 'selectors' which correspond to the featureName are defined
+          if(featureDict["Selectors"].IsDefined() && featureDict["Selectors"].size() > 0)
+          {
+            int selectorIdx = 1;
+            for(auto selectorDict : featureDict["Selectors"])
+            {
+              std::string selectorFeatureName = selectorDict["FeatureName"].IsDefined() 
+                                                ? selectorDict["FeatureName"].as<std::string>()
+                                                : "";
+              std::string selectorType = selectorDict["Type"].IsDefined() 
+                                         ? selectorDict["Type"].as<std::string>()
+                                         : "";
+              std::string selectorValue = selectorDict["Value"].IsDefined() 
+                                          ? selectorDict["Value"].as<std::string>()
+                                          : "";
+
+              if(selectorFeatureName.empty() || selectorType.empty() || selectorValue.empty())
+              {
+                ROS_WARN_ONCE(
+                  "Diagnostic feature selector at index %i of feature at index %i does not have a "
+                  "field 'FeatureName', 'Type' or 'Value'.",
+                  selectorIdx, featureIdx);
+                ROS_WARN_ONCE("Diagnostic feature will be skipped.");
+              }
+              else
+              {
+                if (implemented_features_.find(selectorFeatureName) != implemented_features_.end() &&
+                    implemented_features_.at(selectorFeatureName))
+                {
+                  setFeatureValueFromStrFn(selectorFeatureName, selectorType, selectorValue);
+
+                  kvPair.key = featureName + "-" + selectorValue;
+                  kvPair.value = getFeatureValueAsStrFn(featureName, featureType);
+
+                  camDiagnosticMsg.data.push_back(diagnostic_msgs::KeyValue(kvPair));
+                }
+                else
+                {
+                  ROS_WARN_ONCE("Diagnostic feature selector with name '%s' is not implemented.", 
+                                selectorFeatureName.c_str());
+                }
+
+                selectorIdx++;
+              }
+            }
+          }
+          else
+          {
+            kvPair.key = featureName;
+            kvPair.value = getFeatureValueAsStrFn(featureName, featureType);
+
+            camDiagnosticMsg.data.push_back(diagnostic_msgs::KeyValue(kvPair));
+          }
+        }
+        else
+        {
+          ROS_WARN_ONCE("Diagnostic feature with name '%s' is not implemented.", 
+          featureName.c_str());
+        }
+      }
+
+      featureIdx++;
+    }
+
+    diagnostic_pub_.publish(camDiagnosticMsg);
+
+    loop_rate.sleep();
+  }
+
+}
+
 void CameraAravisNodelet::discoverFeatures()
 {
   implemented_features_.clear();
@@ -1529,7 +1776,7 @@ void CameraAravisNodelet::writeCameraFeaturesFromRosparam()
           case XmlRpc::XmlRpcValue::TypeInt: //if ((iter->second.getType()==XmlRpc::XmlRpcValue::TypeInt))// && (typeValue==G_TYPE_INT64))
           {
             int value = (int)iter->second;
-            arv_device_set_integer_feature_value(p_device_, key.c_str(), value);
+                        arv_device_set_integer_feature_value(p_device_, key.c_str(), value);
             ROS_INFO("Read parameter (int) %s: %d", key.c_str(), value);
           }
             break;
@@ -1537,7 +1784,7 @@ void CameraAravisNodelet::writeCameraFeaturesFromRosparam()
           case XmlRpc::XmlRpcValue::TypeDouble: //if ((iter->second.getType()==XmlRpc::XmlRpcValue::TypeDouble))// && (typeValue==G_TYPE_DOUBLE))
           {
             double value = (double)iter->second;
-            arv_device_set_float_feature_value(p_device_, key.c_str(), value);
+                        arv_device_set_float_feature_value(p_device_, key.c_str(), value);
             ROS_INFO("Read parameter (float) %s: %f", key.c_str(), value);
           }
             break;
@@ -1545,7 +1792,7 @@ void CameraAravisNodelet::writeCameraFeaturesFromRosparam()
           case XmlRpc::XmlRpcValue::TypeString: //if ((iter->second.getType()==XmlRpc::XmlRpcValue::TypeString))// && (typeValue==G_TYPE_STRING))
           {
             std::string value = (std::string)iter->second;
-            arv_device_set_string_feature_value(p_device_, key.c_str(), value.c_str());
+                        arv_device_set_string_feature_value(p_device_, key.c_str(), value.c_str());
             ROS_INFO("Read parameter (string) %s: %s", key.c_str(), value.c_str());
           }
             break;
