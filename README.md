@@ -47,6 +47,10 @@ a variety of camera features via the ROS reconfigure_gui, including the followin
 * FocusPos             (integer)
 * mtu                  (integer)
 
+Note that if the camera parameters are to be initialized from the parameters from the dynamic
+reconfigure server, the launch parameter ```init_params_from_dyn_reconfigure``` needs to be set
+to ```true``` (Default: ```false```);
+
 Note that the above are also the ROS parameter names of their respective feature.  You may
 set initial values for the camera by setting ROS parameters in the camera's namespace.
 

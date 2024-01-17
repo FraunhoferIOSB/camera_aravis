@@ -110,6 +110,8 @@ void CameraAravisNodelet::onInit()
   ptp_enable_feature_ = pnh.param<std::string>("ptp_enable_feature_name", ptp_enable_feature_);
   ptp_status_feature_ = pnh.param<std::string>("ptp_status_feature_name", ptp_status_feature_);
   ptp_set_cmd_feature_ = pnh.param<std::string>("ptp_set_cmd_feature_name", ptp_set_cmd_feature_);
+
+  bool init_params_from_reconfig = pnh.param<bool>("init_params_from_dyn_reconfigure", false);
   
   pub_ext_camera_info_ = pnh.param<bool>("ExtendedCameraInfo", pub_ext_camera_info_); // publish an extended camera info message
   pub_tf_optical_ = pnh.param<bool>("publish_tf", pub_tf_optical_); // should we publish tf transforms to camera optical frame?
@@ -242,26 +244,29 @@ void CameraAravisNodelet::onInit()
   for(int i = 0; i < num_streams_; i++) {
     arv_camera_gv_select_stream_channel(p_camera_,i);
 
-    // Initial camera settings.
-    if (implemented_features_["ExposureTime"])
-      arv_camera_set_exposure_time(p_camera_, config_.ExposureTime);
-    else if (implemented_features_["ExposureTimeAbs"])
-      arv_device_set_float_feature_value(p_device_, "ExposureTimeAbs", config_.ExposureTime);
-    if (implemented_features_["Gain"])
-      arv_camera_set_gain(p_camera_, config_.Gain);
-    if (implemented_features_["AcquisitionFrameRateEnable"])
-      arv_device_set_integer_feature_value(p_device_, "AcquisitionFrameRateEnable", 1);
-    if (implemented_features_["AcquisitionFrameRate"])
-      arv_camera_set_frame_rate(p_camera_, config_.AcquisitionFrameRate);
-
-    // init default to full sensor resolution
-    arv_camera_set_region (p_camera_, 0, 0, roi_.width_max, roi_.height_max);
-
-    // Set up the triggering.
-    if (implemented_features_["TriggerMode"] && implemented_features_["TriggerSelector"])
+    if(init_params_from_reconfig)
     {
-      arv_device_set_string_feature_value(p_device_, "TriggerSelector", "FrameStart");
-      arv_device_set_string_feature_value(p_device_, "TriggerMode", "Off");
+      // Initial camera settings.
+      if (implemented_features_["ExposureTime"])
+        arv_camera_set_exposure_time(p_camera_, config_.ExposureTime);
+      else if (implemented_features_["ExposureTimeAbs"])
+        arv_device_set_float_feature_value(p_device_, "ExposureTimeAbs", config_.ExposureTime);
+      if (implemented_features_["Gain"])
+        arv_camera_set_gain(p_camera_, config_.Gain);
+      if (implemented_features_["AcquisitionFrameRateEnable"])
+        arv_device_set_integer_feature_value(p_device_, "AcquisitionFrameRateEnable", 1);
+      if (implemented_features_["AcquisitionFrameRate"])
+        arv_camera_set_frame_rate(p_camera_, config_.AcquisitionFrameRate);
+
+      // init default to full sensor resolution
+      arv_camera_set_region (p_camera_, 0, 0, roi_.width_max, roi_.height_max);
+
+      // Set up the triggering.
+      if (implemented_features_["TriggerMode"] && implemented_features_["TriggerSelector"])
+      {
+        arv_device_set_string_feature_value(p_device_, "TriggerSelector", "FrameStart");
+        arv_device_set_string_feature_value(p_device_, "TriggerMode", "Off");
+      }
     }
 
     // possibly set or override from given parameter
@@ -694,10 +699,11 @@ void CameraAravisNodelet::resetPtpClock()
   // a PTP slave can take the following states: Slave, Listening, Uncalibrated, Faulty, Disabled
   std::string ptp_status_str = 
     arv_device_get_string_feature_value(p_device_, ptp_status_feature_.c_str());
-  if (ptp_status_str == std::string("Faulty") || 
-      ptp_status_str == std::string("Disabled") || 
-      ptp_status_str == std::string("Initializing") ||
-      ! arv_device_get_boolean_feature_value(p_device_, ptp_enable_feature_.c_str()));
+  bool ptp_is_enabled = arv_device_get_boolean_feature_value(p_device_, ptp_enable_feature_.c_str());
+  if (ptp_status_str == "Faulty" || 
+      ptp_status_str == "Disabled" || 
+      ptp_status_str == "Initializing" ||
+      !ptp_is_enabled)
   {
     ROS_INFO("Resetting ptp clock (was set to %s)", ptp_status_str.c_str());
 
