@@ -111,7 +111,7 @@ void CameraAravisNodelet::onInit()
   ptp_status_feature_ = pnh.param<std::string>("ptp_status_feature_name", ptp_status_feature_);
   ptp_set_cmd_feature_ = pnh.param<std::string>("ptp_set_cmd_feature_name", ptp_set_cmd_feature_);
 
-  bool init_params_from_reconfig = pnh.param<bool>("init_params_from_dyn_reconfigure", false);
+  bool init_params_from_reconfig = pnh.param<bool>("init_params_from_dyn_reconfigure", true);
   
   pub_ext_camera_info_ = pnh.param<bool>("ExtendedCameraInfo", pub_ext_camera_info_); // publish an extended camera info message
   pub_tf_optical_ = pnh.param<bool>("publish_tf", pub_tf_optical_); // should we publish tf transforms to camera optical frame?
