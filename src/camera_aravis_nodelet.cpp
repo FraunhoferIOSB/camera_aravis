@@ -502,7 +502,20 @@ void CameraAravisNodelet::onInit()
 
   // Reset PTP clock
   if (use_ptp_stamp_)
+  {
     resetPtpClock();
+
+    if(!ptp_set_cmd_feature_.empty())
+    {
+      if(implemented_features_[ptp_set_cmd_feature_])
+      {
+        arv_device_execute_command(p_device_, ptp_set_cmd_feature_.c_str());
+      }
+      else
+        ROS_WARN("PTP Error: ptp_set_cmd_feature_ '%s' is not available on the device.", 
+              ptp_set_cmd_feature_.c_str());
+    } 
+  }
 
   // spawn camera stream in thread, so onInit() is not blocked
   spawning_ = true;
@@ -709,17 +722,7 @@ void CameraAravisNodelet::resetPtpClock()
 
     arv_device_set_boolean_feature_value(p_device_, ptp_enable_feature_.c_str(), false);
     arv_device_set_boolean_feature_value(p_device_, ptp_enable_feature_.c_str(), true);
-
-    if(!ptp_set_cmd_feature_.empty())
-    {
-      if(implemented_features_[ptp_set_cmd_feature_])
-        arv_device_execute_command(p_device_, ptp_set_cmd_feature_.c_str());
-      else
-        ROS_WARN("PTP Error: ptp_set_cmd_feature_ '%s' is not available on the device.", 
-             ptp_set_cmd_feature_.c_str());
-    }
   }
-  
 }
 
 void CameraAravisNodelet::cameraAutoInfoCallback(const CameraAutoInfoConstPtr &msg_ptr)
@@ -1270,7 +1273,7 @@ void CameraAravisNodelet::newBufferReadyCallback(ArvStream *p_stream, gpointer c
 
 void CameraAravisNodelet::newBufferReady(ArvStream *p_stream, CameraAravisNodelet *p_can, std::string frame_id, size_t stream_id)
 {
-  ArvBuffer *p_buffer = arv_stream_try_pop_buffer(p_stream);
+  ArvBuffer *p_buffer = arv_stream_timeout_pop_buffer(p_stream, 200000);
 
   // check if we risk to drop the next image because of not enough buffers left
   gint n_available_buffers;
@@ -1444,7 +1447,8 @@ void CameraAravisNodelet::fillExtendedCameraInfoMessage(ExtendedCameraInfo &msg)
 void CameraAravisNodelet::controlLostCallback(ArvDevice *p_gv_device, gpointer can_instance)
 {
   CameraAravisNodelet *p_can = (CameraAravisNodelet*)can_instance;
-  ROS_ERROR("Control to aravis device lost.");
+  ROS_ERROR("Control to aravis device los.\n\t> Nodelet name: %s\n\t> Shutting down!", 
+            p_can->getName().c_str());
   nodelet::NodeletUnload unload_service;
   unload_service.request.name = p_can->getName();
   if (false == ros::service::call(ros::this_node::getName() + "/unload_nodelet", unload_service))
