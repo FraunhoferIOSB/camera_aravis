@@ -1273,7 +1273,7 @@ void CameraAravisNodelet::newBufferReadyCallback(ArvStream *p_stream, gpointer c
 
 void CameraAravisNodelet::newBufferReady(ArvStream *p_stream, CameraAravisNodelet *p_can, std::string frame_id, size_t stream_id)
 {
-  ArvBuffer *p_buffer = arv_stream_timeout_pop_buffer(p_stream, 200000);
+  ArvBuffer *p_buffer = arv_stream_try_pop_buffer(p_stream);
 
   // check if we risk to drop the next image because of not enough buffers left
   gint n_available_buffers;
