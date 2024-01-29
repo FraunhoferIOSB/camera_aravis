@@ -17,7 +17,7 @@
   <arg name="verbose"                  default="false"/>
 
   <!-- Nodelet Manager -->
-  <node if="$(arg load_manager)" pkg="nodelet" type="nodelet" name="$(arg manager_name)" args="manager" output="screen">
+  <node if="$(arg load_manager)" pkg="nodelet" type="nodelet" name="$(arg manager_name)" required="true" args="manager" output="screen">
     <param name="num_worker_threads" value="$(arg manager_threads)" />
   </node>
 

@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<launch>
+  <node pkg="camera_aravis" type="launch_script.sh" name="respawning_camera_aravis"
+        respawn="true" output="screen"
+        args="$(find camera_aravis)/launch/camera_aravis.launch"/>
+</launch> 

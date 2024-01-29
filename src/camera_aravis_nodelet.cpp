@@ -100,6 +100,7 @@ CameraAravisNodelet::~CameraAravisNodelet()
 
 void CameraAravisNodelet::onInit()
 {
+  ros::NodeHandle nh = getNodeHandle();
   ros::NodeHandle pnh = getPrivateNodeHandle();
 
   // Retrieve ros parameters
@@ -136,6 +137,10 @@ void CameraAravisNodelet::onInit()
   diagnostic_yaml_url_ = pnh.param<std::string>("diagnostic_yaml_url", diagnostic_yaml_url_);
   diagnostic_publish_rate_ = 
     std::max(0.0, pnh.param<double>("diagnostic_publish_rate", 0.1));
+
+  shutdown_trigger_ = nh.createTimer(ros::Duration(0.1), &CameraAravisNodelet::onShutdownTriggered, 
+    this, true, false);
+  shutdown_delay_s_ = pnh.param<double>("shutdown_delay_s", 5.0);
 
   // Print out some useful info.
   ROS_INFO("Attached cameras:");
@@ -1447,14 +1452,11 @@ void CameraAravisNodelet::fillExtendedCameraInfoMessage(ExtendedCameraInfo &msg)
 void CameraAravisNodelet::controlLostCallback(ArvDevice *p_gv_device, gpointer can_instance)
 {
   CameraAravisNodelet *p_can = (CameraAravisNodelet*)can_instance;
-  ROS_ERROR("Control to aravis device los.\n\t> Nodelet name: %s\n\t> Shutting down!", 
+  ROS_ERROR("Control to aravis device lost.\n\t> Nodelet name: %s."
+            "\n\t> Shutting down. Allowing for respawn.", 
             p_can->getName().c_str());
-  nodelet::NodeletUnload unload_service;
-  unload_service.request.name = p_can->getName();
-  if (false == ros::service::call(ros::this_node::getName() + "/unload_nodelet", unload_service))
-  {
-    ros::shutdown();
-  }
+
+  p_can->shutdown_trigger_.start();
 }
 
 void CameraAravisNodelet::softwareTriggerLoop()
@@ -1812,6 +1814,19 @@ void CameraAravisNodelet::writeCameraFeaturesFromRosparam()
       }
     }
   }
+}
+
+void CameraAravisNodelet::onShutdownTriggered(const ros::TimerEvent&)
+{
+  nodelet::NodeletUnload unload_service;
+  unload_service.request.name = this->getName();
+  ros::service::call(this->getName() + "/unload_nodelet", unload_service);
+  ROS_INFO("Nodelet unloaded.");
+
+  ros::Duration(shutdown_delay_s_).sleep();
+
+  ros::shutdown();
+  ROS_INFO("Shut down successful.");
 }
 
 } // end namespace camera_aravis
