@@ -108,6 +108,38 @@ The solution is to start with a base of ROS time, and to accumulate the dt's fro
 To accommodate the difference in clock rates, a PID controller gently pulls the result toward
 ROS time.
 
+### Manually Setting White Balance
+
+Typically the cameras support three different modes for auto white balancing, namely ```Continuous```,
+```Once```, and ```Off```. These can be set via the launch parameter and feature name ```BalanceWhiteAuto```. As the names suggest, the first mode will continuously adjust the white 
+balance, while the second mode will measure the white balance once and then freeze the ratio
+parameters. In case, of the third mode, the ratio of the different color channels can and need to be
+ set manually.
+
+To manually set the white balance, camera_aravis provides a couple of launch parameters:
+
+- ```wb_ratio_selector_feature```: Feature name on the camera device to select the color channel for which the ratio is to be set.
+	- Type: ```string```
+	- Default: ```""```
+
+- ```wb_ratio_selectors```: Comma separated list of channel names for which a ratio is to be set.
+The values of this list are set to the selector given by 'wb_ratio_selector_feature' before the
+actual ratios ('wb_ratios') are set. This list should be the same size as the ratio list given in 'wb_ratios'.
+	- Type: ```string```
+	- Default: ```""```
+	- Example: ```"Red,Blue"```
+
+- ```wb_ratio_feature```: Feature name on the camera device to set the ratio for the color channel 
+selected by 'wb_ratio_selector_feature'.
+	- Type: ```string```
+	- Default: ```""```
+
+- ```wb_ratios```: Comma separated list of ratios (float) which are to be set for the channels 
+specified in 'wb_ratio_selectors'. This list should be the same size as the ratio list given in 'wb_ratios'.
+	- Type: ```string```
+	- Default: ```""```
+	- Example: ```"1.4,2.5"```
+
 ### Activating PTP Timestamp
 
 Some cameras support the use of the Precision Time Protocol (PTP) to set the timestamps of the 

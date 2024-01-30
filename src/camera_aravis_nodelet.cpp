@@ -113,6 +113,24 @@ void CameraAravisNodelet::onInit()
   ptp_set_cmd_feature_ = pnh.param<std::string>("ptp_set_cmd_feature_name", ptp_set_cmd_feature_);
 
   bool init_params_from_reconfig = pnh.param<bool>("init_params_from_dyn_reconfigure", true);
+
+  std::string awb_mode = pnh.param<std::string>("BalanceWhiteAuto", "Continuous");
+  std::string wb_ratio_selector_feature = pnh.param<std::string>("wb_ratio_selector_feature", "");
+  std::string wb_ratio_feature = pnh.param<std::string>("wb_ratio_feature", "");
+
+  std::string wb_ratio_selector_args = pnh.param<std::string>("wb_ratio_selectors", "");  
+  std::vector<std::string> wb_ratio_selector_values;
+  parseStringArgs(wb_ratio_selector_args, wb_ratio_selector_values);
+
+  std::string wb_ratio_args = pnh.param<std::string>("wb_ratios", "");  
+  std::vector<std::string> wb_ratio_str_values;
+  parseStringArgs(wb_ratio_args, wb_ratio_str_values);
+
+  if(wb_ratio_selector_values.size() != wb_ratio_str_values.size())
+  {
+    ROS_WARN("Lists of 'wb_ratio_selector' and 'wb_ratio' have different sizes. "
+             "Only setting values which exist in both lists.");
+  }
   
   pub_ext_camera_info_ = pnh.param<bool>("ExtendedCameraInfo", pub_ext_camera_info_); // publish an extended camera info message
   pub_tf_optical_ = pnh.param<bool>("publish_tf", pub_tf_optical_); // should we publish tf transforms to camera optical frame?
@@ -276,6 +294,20 @@ void CameraAravisNodelet::onInit()
 
     // possibly set or override from given parameter
     writeCameraFeaturesFromRosparam();
+
+    if(awb_mode == "Off"
+       && !wb_ratio_selector_feature.empty() && implemented_features_[wb_ratio_selector_feature]
+       && !wb_ratio_feature.empty() && implemented_features_[wb_ratio_feature])
+    {
+      for(int l = 0; l < std::min(wb_ratio_selector_values.size(), wb_ratio_str_values.size());
+          l++)
+      {
+        arv_device_set_string_feature_value(p_device_, wb_ratio_selector_feature.c_str(), 
+                                            wb_ratio_selector_values[l].c_str());
+        arv_device_set_float_feature_value(p_device_, wb_ratio_feature.c_str(), 
+                                            std::stof(wb_ratio_str_values[l]));
+      }
+    }
   }
 
   ros::Duration(2.0).sleep();
@@ -465,22 +497,37 @@ void CameraAravisNodelet::onInit()
   ROS_INFO("    ROI x,y,w,h          = %d, %d, %d, %d", roi_.x, roi_.y, roi_.width, roi_.height);
   ROS_INFO("    Pixel format         = %s", sensors_[0]->pixel_format.c_str());
   ROS_INFO("    BitsPerPixel         = %lu", sensors_[0]->n_bits_pixel);
-  ROS_INFO(
-      "    Acquisition Mode     = %s",
+  ROS_INFO("    Acquisition Mode     = %s",
       implemented_features_["AcquisitionMode"] ? arv_device_get_string_feature_value(p_device_, "AcquisitionMode") :
           "(not implemented in camera)");
-  ROS_INFO(
-      "    Trigger Mode         = %s",
+  ROS_INFO("    Trigger Mode         = %s",
       implemented_features_["TriggerMode"] ? arv_device_get_string_feature_value(p_device_, "TriggerMode") :
           "(not implemented in camera)");
-  ROS_INFO(
-      "    Trigger Source       = %s",
+  ROS_INFO("    Trigger Source       = %s",
       implemented_features_["TriggerSource"] ? arv_device_get_string_feature_value(p_device_, "TriggerSource") :
           "(not implemented in camera)");
   ROS_INFO("    Can set FrameRate:     %s", implemented_features_["AcquisitionFrameRate"] ? "True" : "False");
   if (implemented_features_["AcquisitionFrameRate"])
   {
     ROS_INFO("    AcquisitionFrameRate = %g hz", config_.AcquisitionFrameRate);
+  }
+
+  if (implemented_features_["BalanceWhiteAuto"])
+  {
+    ROS_INFO("    BalanceWhiteAuto     = %s", awb_mode.c_str());
+    if(awb_mode != "Continuous" 
+       && !wb_ratio_selector_feature.empty() && implemented_features_[wb_ratio_selector_feature]
+       && !wb_ratio_feature.empty() && implemented_features_[wb_ratio_feature])
+    {
+      for(int l = 0; l < std::min(wb_ratio_selector_values.size(), wb_ratio_str_values.size());
+          l++)
+      {
+        arv_device_set_string_feature_value(p_device_, wb_ratio_selector_feature.c_str(), 
+                                            wb_ratio_selector_values[l].c_str());
+        float wb_ratio_val = arv_device_get_float_feature_value(p_device_, wb_ratio_feature.c_str());
+        ROS_INFO("    BalanceRatio %s     = %f", wb_ratio_selector_values[l].c_str(), wb_ratio_val);
+      }
+    }
   }
 
   ROS_INFO("    Can set Exposure:      %s", implemented_features_["ExposureTime"] ? "True" : "False");
