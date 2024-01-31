@@ -17,7 +17,7 @@
   <arg name="verbose"                  default="false"/>
 
   <!-- Nodelet Manager -->
-  <node if="$(arg load_manager)" pkg="nodelet" type="nodelet" name="$(arg manager_name)" args="manager" output="screen">
+  <node if="$(arg load_manager)" pkg="nodelet" type="nodelet" name="$(arg manager_name)" required="true" args="manager" output="screen">
     <param name="num_worker_threads" value="$(arg manager_threads)" />
   </node>
 
@@ -43,7 +43,13 @@
       <param name="AutoFunctionsROIPreset" value="AutoFunctionsROIPreset_Full"/>
       <param name="ExposureAuto"         value="Continuous"/>
       <param name="GainAuto"             value="Continuous"/>
-      <param name="BalanceWhiteAuto"     value="Continuous"/>
+      
+      <!-- BalanceWhiteAuto Modes: Continuous, Once, Off -->
+      <param name="BalanceWhiteAuto"            value="Off"/>
+      <param name="wb_ratio_selector_feature"	  value="BalanceRatioSelector"/>
+      <param name="wb_ratio_selectors"	        value="Red,Blue"/>
+      <param name="wb_ratio_feature"	  	      value="BalanceRatio"/>
+      <param name="wb_ratios"	  	  	          value="1.4,2.5"/>
 
       <param name="use_ptp_timestamp"           value="true"/>
       <param name="ptp_enable_feature_name"     value="PtpEnable"/>

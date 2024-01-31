@@ -108,6 +108,38 @@ The solution is to start with a base of ROS time, and to accumulate the dt's fro
 To accommodate the difference in clock rates, a PID controller gently pulls the result toward
 ROS time.
 
+### Manually Setting White Balance
+
+Typically the cameras support three different modes for auto white balancing, namely ```Continuous```,
+```Once```, and ```Off```. These can be set via the launch parameter and feature name ```BalanceWhiteAuto```. As the names suggest, the first mode will continuously adjust the white 
+balance, while the second mode will measure the white balance once and then freeze the ratio
+parameters. In case, of the third mode, the ratio of the different color channels can and need to be
+ set manually.
+
+To manually set the white balance, camera_aravis provides a couple of launch parameters:
+
+- ```wb_ratio_selector_feature```: Feature name on the camera device to select the color channel for which the ratio is to be set.
+	- Type: ```string```
+	- Default: ```""```
+
+- ```wb_ratio_selectors```: Comma separated list of channel names for which a ratio is to be set.
+The values of this list are set to the selector given by 'wb_ratio_selector_feature' before the
+actual ratios ('wb_ratios') are set. This list should be the same size as the ratio list given in 'wb_ratios'.
+	- Type: ```string```
+	- Default: ```""```
+	- Example: ```"Red,Blue"```
+
+- ```wb_ratio_feature```: Feature name on the camera device to set the ratio for the color channel 
+selected by 'wb_ratio_selector_feature'.
+	- Type: ```string```
+	- Default: ```""```
+
+- ```wb_ratios```: Comma separated list of ratios (float) which are to be set for the channels 
+specified in 'wb_ratio_selectors'. This list should be the same size as the ratio list given in 'wb_ratios'.
+	- Type: ```string```
+	- Default: ```""```
+	- Example: ```"1.4,2.5"```
+
 ### Activating PTP Timestamp
 
 Some cameras support the use of the Precision Time Protocol (PTP) to set the timestamps of the 
@@ -156,6 +188,57 @@ additionally specify a list of ```Selectors```. Each entry in this list should a
 For each feature a key-value pair is constructed and published in the ```data``` field of the 
 message stated above. If a feature as a list of selectors, one key-value pair is constructed for
 each Feature-Selector pair.
+
+## Ensuring a respawn after failure
+
+<b>Continuously respawning a ROS node:</b>
+
+A node within a launch file can be configured to be automatically respawned in case of failure.
+To do so an additional attribute ```respawn="true"``` is to be set. 
+When running camera_aravis as node this can be directly set for the corresponding node, as shown 
+below:
+
+```XML
+<node pkg="camera_aravis" type="cam_aravis" name="camera_aravis_node" respawn="true" output="screen">
+	...
+</node>
+```
+
+<b>Continuously respawning a ROS nodelet:</b>
+
+In case of using camera_aravis as a nodelet withing a nodelet manager, the actual launch file needs
+to be called from within a simple launch script which, in turn, is called as a respawning node in
+another launch file.
+This is exemplarily demonstrated with [launch_script.sh](scripts/launch_script.sh) and 
+[respawning_camera_aravis.launch](launch/respawning_camera_aravis.launch) and shown below:
+
+*launch_script.sh*
+```bash
+#!/bin/bash
+
+roslaunch "$@"
+
+exit
+```
+*respawning_camera_aravis.launch*
+```XML
+<?xml version="1.0"?>
+<launch>
+  <node pkg="camera_aravis" type="launch_script.sh" name="respawning_camera_aravis"
+        respawn="true" output="screen"
+        args="$(find camera_aravis)/launch/camera_aravis.launch"/>
+</launch> 
+```
+
+In this, the actual launch file, i.e. ```camera_aravis.launch```, is passed as argument to the
+respawning launch script in ```respawning_camera_aravis.launch```.
+Furthermore, in order for the nodelet manager to finish on crash, it is important the attribute 
+```required="true"``` is set to the manager.
+
+**NOTE:** In some cases it is necessary that the shutdown of the node/nodelet is delayed by some
+time in order for the camera to be properly disconnected.
+The shutdown delay time in secondes can by configured by the parameter ```shutdown_delay_s```, 
+default: 5 seconds.
 
 ## Known Issues
 
