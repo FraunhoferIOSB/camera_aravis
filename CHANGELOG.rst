@@ -2,6 +2,20 @@
 Changelog for package camera_aravis
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Added launch parameters allowing to manually set white balance
+* Launch configuration, scripts and adjustments to allow raspawning
+* Moved execution of set latch command for ptp
+* Added parameter init_params_from_dyn_reconfigure and minor bugfix
+* Read and publish camera diagnostics 
+* Improved support for Precision Time Protocol (PTP)
+* Minor bugfixes
+  * Opened device output
+  * Resetting ptp timestamp
+* Updated documentation in README.md
+* Contributors: Boitumelo Ruf
+
 4.0.4 (2022-12-23)
 ------------------
 * Update package maintainer
