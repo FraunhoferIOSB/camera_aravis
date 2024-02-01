@@ -2,8 +2,8 @@
 Changelog for package camera_aravis
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+4.0.5 (2024-02-01)
+------------------
 * Added launch parameters allowing to manually set white balance
 * Launch configuration, scripts and adjustments to allow raspawning
 * Moved execution of set latch command for ptp
