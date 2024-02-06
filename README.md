@@ -240,6 +240,20 @@ time in order for the camera to be properly disconnected.
 The shutdown delay time in secondes can by configured by the parameter ```shutdown_delay_s```, 
 default: 5 seconds.
 
+## Extracting Camera-Specific GenICam XML
+
+Each camera model has a specific XML data stored inside the device memory which describes the GenICam interface of the camera. 
+In this XML data the supported features of the camera are documented and can help to configure the camera.
+To extract this XML data and write it into a file, camera_aravis provides the node `export_genicam_xml` which can be invoked as shown below:
+
+```bash
+rosrun camera_aravis export_genicam_xml _guid:=<camera_guid> _xml_file:=<output_file>
+```
+
+If `_guid` is omitted, the XML data will be read from any of the cameras which are connected and found by camera_aravis.
+As a `_xml_file`, either a relative or absolute path can be provided in which the XML data is to be saved.
+If omitted, the data is saved into a file in the current working directory with the 'guid' as filename.
+
 ## Known Issues
 
 ### Slow read of white balance and black level values
