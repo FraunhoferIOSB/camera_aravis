@@ -102,6 +102,7 @@ CameraAravisNodelet::~CameraAravisNodelet()
 
 void CameraAravisNodelet::onInit()
 {
+  ros::NodeHandle nh = getNodeHandle();
   ros::NodeHandle pnh = getPrivateNodeHandle();
 
   // Retrieve ros parameters
@@ -112,6 +113,26 @@ void CameraAravisNodelet::onInit()
   ptp_enable_feature_ = pnh.param<std::string>("ptp_enable_feature_name", ptp_enable_feature_);
   ptp_status_feature_ = pnh.param<std::string>("ptp_status_feature_name", ptp_status_feature_);
   ptp_set_cmd_feature_ = pnh.param<std::string>("ptp_set_cmd_feature_name", ptp_set_cmd_feature_);
+
+  bool init_params_from_reconfig = pnh.param<bool>("init_params_from_dyn_reconfigure", true);
+
+  std::string awb_mode = pnh.param<std::string>("BalanceWhiteAuto", "Continuous");
+  std::string wb_ratio_selector_feature = pnh.param<std::string>("wb_ratio_selector_feature", "");
+  std::string wb_ratio_feature = pnh.param<std::string>("wb_ratio_feature", "");
+
+  std::string wb_ratio_selector_args = pnh.param<std::string>("wb_ratio_selectors", "");  
+  std::vector<std::string> wb_ratio_selector_values;
+  parseStringArgs(wb_ratio_selector_args, wb_ratio_selector_values);
+
+  std::string wb_ratio_args = pnh.param<std::string>("wb_ratios", "");  
+  std::vector<std::string> wb_ratio_str_values;
+  parseStringArgs(wb_ratio_args, wb_ratio_str_values);
+
+  if(wb_ratio_selector_values.size() != wb_ratio_str_values.size())
+  {
+    ROS_WARN("Lists of 'wb_ratio_selector' and 'wb_ratio' have different sizes. "
+             "Only setting values which exist in both lists.");
+  }
   
   pub_ext_camera_info_ = pnh.param<bool>("ExtendedCameraInfo", pub_ext_camera_info_); // publish an extended camera info message
   pub_tf_optical_ = pnh.param<bool>("publish_tf", pub_tf_optical_); // should we publish tf transforms to camera optical frame?
@@ -136,6 +157,10 @@ void CameraAravisNodelet::onInit()
   diagnostic_yaml_url_ = pnh.param<std::string>("diagnostic_yaml_url", diagnostic_yaml_url_);
   diagnostic_publish_rate_ = 
     std::max(0.0, pnh.param<double>("diagnostic_publish_rate", 0.1));
+
+  shutdown_trigger_ = nh.createTimer(ros::Duration(0.1), &CameraAravisNodelet::onShutdownTriggered, 
+    this, true, false);
+  shutdown_delay_s_ = pnh.param<double>("shutdown_delay_s", 5.0);
 
   // Print out some useful info.
   ROS_INFO("Attached cameras:");
@@ -251,30 +276,47 @@ void CameraAravisNodelet::onInit()
   for(int i = 0; i < num_streams_; i++) {
     arv_camera_gv_select_stream_channel(p_camera_,i);
 
-    // Initial camera settings.
-    if (implemented_features_["ExposureTime"])
-      arv_camera_set_exposure_time(p_camera_, config_.ExposureTime);
-    else if (implemented_features_["ExposureTimeAbs"])
-      arv_device_set_float_feature_value(p_device_, "ExposureTimeAbs", config_.ExposureTime);
-    if (implemented_features_["Gain"])
-      arv_camera_set_gain(p_camera_, config_.Gain);
-    if (implemented_features_["AcquisitionFrameRateEnable"])
-      arv_device_set_integer_feature_value(p_device_, "AcquisitionFrameRateEnable", 1);
-    if (implemented_features_["AcquisitionFrameRate"])
-      arv_camera_set_frame_rate(p_camera_, config_.AcquisitionFrameRate);
-
-    // init default to full sensor resolution
-    arv_camera_set_region (p_camera_, 0, 0, roi_.width_max, roi_.height_max);
-
-    // Set up the triggering.
-    if (implemented_features_["TriggerMode"] && implemented_features_["TriggerSelector"])
+    if(init_params_from_reconfig)
     {
-      arv_device_set_string_feature_value(p_device_, "TriggerSelector", "FrameStart");
-      arv_device_set_string_feature_value(p_device_, "TriggerMode", "Off");
+      // Initial camera settings.
+      if (implemented_features_["ExposureTime"])
+        arv_camera_set_exposure_time(p_camera_, config_.ExposureTime);
+      else if (implemented_features_["ExposureTimeAbs"])
+        arv_device_set_float_feature_value(p_device_, "ExposureTimeAbs", config_.ExposureTime);
+      if (implemented_features_["Gain"])
+        arv_camera_set_gain(p_camera_, config_.Gain);
+      if (implemented_features_["AcquisitionFrameRateEnable"])
+        arv_device_set_integer_feature_value(p_device_, "AcquisitionFrameRateEnable", 1);
+      if (implemented_features_["AcquisitionFrameRate"])
+        arv_camera_set_frame_rate(p_camera_, config_.AcquisitionFrameRate);
+
+      // init default to full sensor resolution
+      arv_camera_set_region (p_camera_, 0, 0, roi_.width_max, roi_.height_max);
+
+      // Set up the triggering.
+      if (implemented_features_["TriggerMode"] && implemented_features_["TriggerSelector"])
+      {
+        arv_device_set_string_feature_value(p_device_, "TriggerSelector", "FrameStart");
+        arv_device_set_string_feature_value(p_device_, "TriggerMode", "Off");
+      }
     }
 
     // possibly set or override from given parameter
     writeCameraFeaturesFromRosparam();
+
+    if(awb_mode == "Off"
+       && !wb_ratio_selector_feature.empty() && implemented_features_[wb_ratio_selector_feature]
+       && !wb_ratio_feature.empty() && implemented_features_[wb_ratio_feature])
+    {
+      for(int l = 0; l < std::min(wb_ratio_selector_values.size(), wb_ratio_str_values.size());
+          l++)
+      {
+        arv_device_set_string_feature_value(p_device_, wb_ratio_selector_feature.c_str(), 
+                                            wb_ratio_selector_values[l].c_str());
+        arv_device_set_float_feature_value(p_device_, wb_ratio_feature.c_str(), 
+                                            std::stof(wb_ratio_str_values[l]));
+      }
+    }
   }
 
   ros::Duration(2.0).sleep();
@@ -464,22 +506,37 @@ void CameraAravisNodelet::onInit()
   ROS_INFO("    ROI x,y,w,h          = %d, %d, %d, %d", roi_.x, roi_.y, roi_.width, roi_.height);
   ROS_INFO("    Pixel format         = %s", sensors_[0]->pixel_format.c_str());
   ROS_INFO("    BitsPerPixel         = %lu", sensors_[0]->n_bits_pixel);
-  ROS_INFO(
-      "    Acquisition Mode     = %s",
+  ROS_INFO("    Acquisition Mode     = %s",
       implemented_features_["AcquisitionMode"] ? arv_device_get_string_feature_value(p_device_, "AcquisitionMode") :
           "(not implemented in camera)");
-  ROS_INFO(
-      "    Trigger Mode         = %s",
+  ROS_INFO("    Trigger Mode         = %s",
       implemented_features_["TriggerMode"] ? arv_device_get_string_feature_value(p_device_, "TriggerMode") :
           "(not implemented in camera)");
-  ROS_INFO(
-      "    Trigger Source       = %s",
+  ROS_INFO("    Trigger Source       = %s",
       implemented_features_["TriggerSource"] ? arv_device_get_string_feature_value(p_device_, "TriggerSource") :
           "(not implemented in camera)");
   ROS_INFO("    Can set FrameRate:     %s", implemented_features_["AcquisitionFrameRate"] ? "True" : "False");
   if (implemented_features_["AcquisitionFrameRate"])
   {
     ROS_INFO("    AcquisitionFrameRate = %g hz", config_.AcquisitionFrameRate);
+  }
+
+  if (implemented_features_["BalanceWhiteAuto"])
+  {
+    ROS_INFO("    BalanceWhiteAuto     = %s", awb_mode.c_str());
+    if(awb_mode != "Continuous" 
+       && !wb_ratio_selector_feature.empty() && implemented_features_[wb_ratio_selector_feature]
+       && !wb_ratio_feature.empty() && implemented_features_[wb_ratio_feature])
+    {
+      for(int l = 0; l < std::min(wb_ratio_selector_values.size(), wb_ratio_str_values.size());
+          l++)
+      {
+        arv_device_set_string_feature_value(p_device_, wb_ratio_selector_feature.c_str(), 
+                                            wb_ratio_selector_values[l].c_str());
+        float wb_ratio_val = arv_device_get_float_feature_value(p_device_, wb_ratio_feature.c_str());
+        ROS_INFO("    BalanceRatio %s     = %f", wb_ratio_selector_values[l].c_str(), wb_ratio_val);
+      }
+    }
   }
 
   ROS_INFO("    Can set Exposure:      %s", implemented_features_["ExposureTime"] ? "True" : "False");
@@ -506,7 +563,20 @@ void CameraAravisNodelet::onInit()
 
   // Reset PTP clock
   if (use_ptp_stamp_)
+  {
     resetPtpClock();
+
+    if(!ptp_set_cmd_feature_.empty())
+    {
+      if(implemented_features_[ptp_set_cmd_feature_])
+      {
+        arv_device_execute_command(p_device_, ptp_set_cmd_feature_.c_str());
+      }
+      else
+        ROS_WARN("PTP Error: ptp_set_cmd_feature_ '%s' is not available on the device.", 
+              ptp_set_cmd_feature_.c_str());
+    } 
+  }
 
   // spawn camera stream in thread, so onInit() is not blocked
   spawning_ = true;
@@ -703,26 +773,17 @@ void CameraAravisNodelet::resetPtpClock()
   // a PTP slave can take the following states: Slave, Listening, Uncalibrated, Faulty, Disabled
   std::string ptp_status_str = 
     arv_device_get_string_feature_value(p_device_, ptp_status_feature_.c_str());
-  if (ptp_status_str == std::string("Faulty") || 
-      ptp_status_str == std::string("Disabled") || 
-      ptp_status_str == std::string("Initializing") ||
-      ! arv_device_get_boolean_feature_value(p_device_, ptp_enable_feature_.c_str()));
+  bool ptp_is_enabled = arv_device_get_boolean_feature_value(p_device_, ptp_enable_feature_.c_str());
+  if (ptp_status_str == "Faulty" || 
+      ptp_status_str == "Disabled" || 
+      ptp_status_str == "Initializing" ||
+      !ptp_is_enabled)
   {
     ROS_INFO("Resetting ptp clock (was set to %s)", ptp_status_str.c_str());
 
     arv_device_set_boolean_feature_value(p_device_, ptp_enable_feature_.c_str(), false);
     arv_device_set_boolean_feature_value(p_device_, ptp_enable_feature_.c_str(), true);
-
-    if(!ptp_set_cmd_feature_.empty())
-    {
-      if(implemented_features_[ptp_set_cmd_feature_])
-        arv_device_execute_command(p_device_, ptp_set_cmd_feature_.c_str());
-      else
-        ROS_WARN("PTP Error: ptp_set_cmd_feature_ '%s' is not available on the device.", 
-             ptp_set_cmd_feature_.c_str());
-    }
   }
-  
 }
 
 void CameraAravisNodelet::cameraAutoInfoCallback(const CameraAutoInfoConstPtr &msg_ptr)
@@ -1447,13 +1508,11 @@ void CameraAravisNodelet::fillExtendedCameraInfoMessage(ExtendedCameraInfo &msg)
 void CameraAravisNodelet::controlLostCallback(ArvDevice *p_gv_device, gpointer can_instance)
 {
   CameraAravisNodelet *p_can = (CameraAravisNodelet*)can_instance;
-  ROS_ERROR("Control to aravis device lost.");
-  nodelet::NodeletUnload unload_service;
-  unload_service.request.name = p_can->getName();
-  if (false == ros::service::call(ros::this_node::getName() + "/unload_nodelet", unload_service))
-  {
-    ros::shutdown();
-  }
+  ROS_ERROR("Control to aravis device lost.\n\t> Nodelet name: %s."
+            "\n\t> Shutting down. Allowing for respawn.", 
+            p_can->getName().c_str());
+
+  p_can->shutdown_trigger_.start();
 }
 
 void CameraAravisNodelet::softwareTriggerLoop()
@@ -1811,6 +1870,19 @@ void CameraAravisNodelet::writeCameraFeaturesFromRosparam()
       }
     }
   }
+}
+
+void CameraAravisNodelet::onShutdownTriggered(const ros::TimerEvent&)
+{
+  nodelet::NodeletUnload unload_service;
+  unload_service.request.name = this->getName();
+  ros::service::call(this->getName() + "/unload_nodelet", unload_service);
+  ROS_INFO("Nodelet unloaded.");
+
+  ros::Duration(shutdown_delay_s_).sleep();
+
+  ros::shutdown();
+  ROS_INFO("Shut down successful.");
 }
 
 } // end namespace camera_aravis
