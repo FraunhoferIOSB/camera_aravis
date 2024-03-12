@@ -57,8 +57,7 @@ set initial values for the camera by setting ROS parameters in the camera's name
 In addition to the above features, this driver now supports (almost) every feature of every camera,
 you just have to know how the feature is specified; each GenICam-based camera contains
 an XML file onboard, and by viewing this file you can determine which ROS parameters to set
-for camera_aravis to write to the camera.  You can use arv-tool-0.2 to see the feature list
-and the XML file (e.g. "arv-tool-0.2 --name=Basler-21285878 features")
+for camera_aravis to write to the camera. Details on how to export the camera-specific XML can be found here: [Extracting Camera-Specific GenICam XML](#extracting-camera-specific-genicam-xml). 
 
 Note that for this special feature access, the ROS parameter type must match the feature type.
 For example, a Basler ac640 has a boolean feature called "GammaEnable", an integer feature
@@ -239,6 +238,29 @@ Furthermore, in order for the nodelet manager to finish on crash, it is importan
 time in order for the camera to be properly disconnected.
 The shutdown delay time in secondes can by configured by the parameter ```shutdown_delay_s```, 
 default: 5 seconds.
+
+## Extracting Camera-Specific GenICam XML
+
+Each camera model has a specific XML data stored inside the device memory which describes the GenICam interface of the camera. 
+In this XML data the supported features of the camera are documented and can help to configure the camera.
+To extract this XML data and write it into a file, camera_aravis provides the node `export_genicam_xml` which can be invoked as shown below:
+
+```bash
+rosrun camera_aravis export_genicam_xml _guid:=<camera_guid> _xml_file:=<output_file>
+```
+
+If `_guid` is omitted, the XML data will be read from any of the cameras which are connected and found by camera_aravis.
+As a `_xml_file`, either a relative or absolute path can be provided in which the XML data is to be saved.
+If omitted, the data is saved into a file in the current working directory with the 'guid' as filename.
+
+
+Alternatively, you can use `aravis-tools` to see the feature list and the XML file: 
+
+```
+sudo apt install aravis-tools
+arv-tool-0.6 --name=<camera_guid> features
+arv-tool-0.6 --name=<camera_guid> genicam
+```
 
 ## Known Issues
 
