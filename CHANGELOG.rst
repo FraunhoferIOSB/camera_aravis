@@ -2,8 +2,8 @@
 Changelog for package camera_aravis
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+4.1.0 (2024-03-12)
+------------------
 * Feature: Export GenICam XML (`#32 <https://github.com/FraunhoferIOSB/camera_aravis/issues/32>`_)
   * Added node export_genicam_xml
 * Updated Readme
