@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>camera_aravis</name>
-  <version>4.0.5</version>
+  <version>4.1.0</version>
   <description>camera_aravis: A complete and comfortable GenICam (USB3Vision and GigEVision) based camera driver for ROS (ethernet and usb).</description>
 
   <maintainer email="boitumelo.ruf@iosb.fraunhofer.de">Boitumelo Ruf, Fraunhofer IOSB</maintainer>

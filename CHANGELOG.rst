@@ -2,6 +2,13 @@
 Changelog for package camera_aravis
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+4.1.0 (2024-03-12)
+------------------
+* Feature: Export GenICam XML (`#32 <https://github.com/FraunhoferIOSB/camera_aravis/issues/32>`_)
+  * Added node export_genicam_xml
+* Updated Readme
+* Contributors: Boitumelo Ruf
+
 4.0.5 (2024-02-01)
 ------------------
 * Added launch parameters allowing to manually set white balance

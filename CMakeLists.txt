@@ -97,6 +97,12 @@ add_executable(cam_aravis
 target_link_libraries(cam_aravis ${PROJECT_NAME} ${LIBRARIES})
 add_dependencies(cam_aravis ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
+add_executable(export_genicam_xml
+  src/export_genicam_xml_node.cpp
+)
+target_link_libraries(export_genicam_xml ${PROJECT_NAME} ${LIBRARIES})
+add_dependencies(export_genicam_xml ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
 install(DIRECTORY include/${PROJECT_NAME}/
   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
   FILES_MATCHING PATTERN "*.h"
@@ -109,7 +115,7 @@ install(TARGETS ${PROJECT_NAME}
   RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
 )
 
-install(TARGETS cam_aravis
+install(TARGETS cam_aravis export_genicam_xml
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
