@@ -1,8 +1,11 @@
 # camera_aravis
 
-:red_circle: **camera_aravis for ROS 2 is released as camera_aravis2** :red_circle:
+## !!! IMPORTANT UPDATE !!!
 
-:red_circle: **https://github.com/FraunhoferIOSB/camera_aravis2** :red_circle:
+**camera_aravis for ROS 2 is now released as camera_aravis2: https://github.com/FraunhoferIOSB/camera_aravis2**
+
+------------------------
+------------------------
 
 Actively maintained repository for the ROS1 camara_aravis driver. It is open source under the LGPL (like Aravis itself).
 
