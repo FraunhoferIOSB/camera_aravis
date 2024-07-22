@@ -1,5 +1,9 @@
 # camera_aravis
 
+:red_circle: **camera_aravis for ROS 2 is released as camera_aravis2** :red_circle:
+
+:red_circle: **https://github.com/FraunhoferIOSB/camera_aravis2** :red_circle:
+
 Actively maintained repository for the ROS1 camara_aravis driver. It is open source under the LGPL (like Aravis itself).
 
 The [Aravis](http://live.gnome.org/Aravis) library is a glib/gobject based library for video acquisition using Genicam cameras. It currently implements the gigabit ethernet and USB3 protocols used by industrial cameras.
