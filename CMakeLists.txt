@@ -46,6 +46,7 @@ add_service_files(
   get_float_feature_value.srv
   get_integer_feature_value.srv
   get_string_feature_value.srv
+  one_shot_white_balance.srv
   set_boolean_feature_value.srv
   set_float_feature_value.srv
   set_integer_feature_value.srv
