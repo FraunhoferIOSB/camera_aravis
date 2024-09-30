@@ -1,0 +1,5 @@
+---
+bool is_successful
+float32 balance_ratio_red
+float32 balance_ratio_green
+float32 balance_ratio_blue

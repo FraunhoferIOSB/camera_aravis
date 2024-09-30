@@ -677,6 +677,8 @@ void CameraAravisNodelet::spawnStream()
     this->set_string_service_  = pnh.advertiseService("set_string_feature_value", &CameraAravisNodelet::setStringFeatureCallback, this);
     this->set_boolean_service_ = pnh.advertiseService("set_boolean_feature_value", &CameraAravisNodelet::setBooleanFeatureCallback, this);
 
+    this->one_shot_white_balance_service_ = pnh.advertiseService("trigger_one_shot_white_balance", &CameraAravisNodelet::oneShotWhiteBalanceCallback, this);
+
     ROS_INFO("Done initializing camera_aravis.");
 }
 
@@ -770,6 +772,59 @@ bool CameraAravisNodelet::setBooleanFeatureCallback(camera_aravis::set_boolean_f
         response.ok = false;
     }
     return true;
+}
+
+bool CameraAravisNodelet::oneShotWhiteBalanceCallback(camera_aravis::one_shot_white_balance::Request& request, camera_aravis::one_shot_white_balance::Response& response)
+{
+    //--- set return values to default
+    response.is_successful = false;
+    response.balance_ratio_red = 0.f;
+    response.balance_ratio_green = 0.f;
+    response.balance_ratio_blue = 0.f;
+
+    //--- check for correct state of camera
+    if(!this->p_device_ || !implemented_features_["BalanceWhiteAuto"])
+        return false;
+
+    arv_device_set_string_feature_value(p_device_, "BalanceWhiteAuto", "Once");
+    if (arv_device_get_status(this->p_device_) == ARV_DEVICE_STATUS_SUCCESS)
+    {
+        const char* tmpCharPtr = arv_device_get_string_feature_value(p_device_, "BalanceWhiteAuto");
+        std::string modeStr = "n/a";
+        if(tmpCharPtr)
+            modeStr = std::string(tmpCharPtr);
+
+        if (implemented_features_["BalanceRatio"] && implemented_features_["BalanceRatioSelector"])
+        {
+            arv_device_set_string_feature_value(p_device_, "BalanceRatioSelector", "Red");
+            response.balance_ratio_red = static_cast<float>(
+                arv_device_get_float_feature_value(p_device_, "BalanceRatio"));
+
+            arv_device_set_string_feature_value(p_device_, "BalanceRatioSelector", "Green");
+            response.balance_ratio_green = static_cast<float>(
+                arv_device_get_float_feature_value(p_device_, "BalanceRatio"));
+
+            arv_device_set_string_feature_value(p_device_, "BalanceRatioSelector", "Blue");
+            response.balance_ratio_blue = static_cast<float>(
+                arv_device_get_float_feature_value(p_device_, "BalanceRatio"));
+        }
+
+        ROS_INFO("Setting Auto White Balance successful!");
+        ROS_INFO("> BalanceWhiteAuto Mode:   %s", modeStr.c_str());
+        ROS_INFO("> BalanceRatio     Red:    %f", response.balance_ratio_red);
+        ROS_INFO("> BalanceRatio     Green:  %f", response.balance_ratio_green);
+        ROS_INFO("> BalanceRatio     Blue:   %f", response.balance_ratio_blue);
+
+
+        response.is_successful = true;
+        return true;
+    }
+    else
+    {
+        ROS_ERROR("Trying to set Auto White Balance once failed!");
+
+        return false;
+    }
 }
 
 void CameraAravisNodelet::resetPtpClock()

@@ -146,6 +146,10 @@ specified in 'wb_ratio_selectors'. This list should be the same size as the rati
 	- Default: ```""```
 	- Example: ```"1.4,2.5"```
 
+To trigger an automatic white balance computation and a subsequent setting of ```BalanceWhiteAuto``` to ```Once```, camera_aravis provides a service called ```trigger_one_shot_white_balance```. 
+Calling this service will trigger a one shot computation of the white balance parameters and return the newly computed balance ratio.
+This can be called no matter which mode has been set previously.
+
 ### Activating PTP Timestamp
 
 Some cameras support the use of the Precision Time Protocol (PTP) to set the timestamps of the 
